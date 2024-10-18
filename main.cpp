@@ -6,8 +6,8 @@
 #include <windows.h>
 #include <conio.h>
 #include <algorithm>
-#include <regex>  // for email validation
-#include <cctype> // for character checks
+#include <regex> 
+#include <cctype>
 
 using namespace std;
 
@@ -405,7 +405,7 @@ public:
     // Static function to validate username length (must be >= 3)
     static bool validateUsername(const string &username)
     {
-        return username.length() >= 3;
+        return username.length() >= 3 && username.length() <= 8;
     }
 
     // Static function to validate password
@@ -512,6 +512,49 @@ public:
         file.close();
     }
 
+    static vector<User> getUsers()
+    {
+        vector<User> users;
+        ifstream file(USER_FILE_PATH);
+        string line;
+
+        while (getline(file, line))
+        {
+            vector<string> tokens = Validations::splitAndDecode(line);
+
+            if (tokens.size() == 3)
+            {
+                string username = Validations::trim(tokens[0]);
+                string password = Encryption::decrypt(Validations::trim(tokens[1]));
+                string email = Validations::trim(tokens[2]);
+                if (username != "" && password != "" && email != "")
+                {
+                    users.push_back(User(username, password, email));
+                }
+                else
+                {
+                    cout << COLOR_RED << "\t\t\t\t\t\tInvalid user data found in file, skipping: " << line << COLOR_RESET << endl;
+                }
+            }
+        }
+
+        file.close();
+        return users;
+    }
+
+    static bool userExists(string input)
+    {
+        vector<User> users = getUsers();
+        for (int i = 0; i < users.size(); i++)
+        {
+            if (users[i].getUsername() == input || users[i].getEmail() == input)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void updateUser(User user)
     {
         vector<User> users = getUsers();
@@ -565,18 +608,17 @@ public:
         return User();
     }
 
-    vector<User> getUsers()
+    static User authenticateUser(string username, string password)
     {
-        vector<User> users;
-        ifstream file(USER_FILE_PATH);
-        string username, password, email;
-        while (file >> username >> password >> email)
+        vector<User> users = getUsers();
+        for (int i = 0; i < users.size(); i++)
         {
-            User user(username, password, email);
-            users.push_back(user);
+            if (users[i].getUsername() == username || users[i].getEmail() == username && users[i].getPassword() == password)
+            {
+                return users[i];
+            }
         }
-        file.close();
-        return users;
+        return User();
     }
 };
 
@@ -607,16 +649,13 @@ public:
                 string password = Encryption::decrypt(Validations::trim(tokens[1]));
                 string email = Validations::trim(tokens[2]);
 
-                if (Validations::validateUsername(username) &&
-                    Validations::validatePassword(password) &&
-                    Validations::validateEmail(email))
+                if (username != "" && password != "" && email != "")
                 {
                     admins.push_back(Admin(username, password, email));
-                    cout << "Admin data loaded: " << username << " " << password << " " << email << endl;
                 }
                 else
                 {
-                    cout << "Invalid admin data found in file, skipping: " << line << endl;
+                    cout << COLOR_RED<< "\t\t\t\t\t\tInvalid admin data found in file, skipping: " << line << COLOR_RESET<< endl;
                 }
             }
         }
@@ -634,11 +673,21 @@ public:
             {
                 return true;
             }
-            {
-                return true;
-            }
         }
         return false;
+    }
+
+    static Admin authenticateAdmin(string username, string password)
+    {
+        vector<Admin> admins = getAdmins();
+        for (int i = 0; i < admins.size(); i++)
+        {
+            if (admins[i].getUsername() == username || admins[i].getEmail() == username && admins[i].getPassword() == password)
+            {
+                return admins[i];
+            }
+        }
+        return Admin();
     }
 };
 
@@ -660,21 +709,49 @@ Person signUp();
 
 int main()
 {
-    AdminDL::getAdmins();
-    pauseScreen();
     while (true)
     {
         int option = displayLandingPage();
         if (option == 1)
         {
-            cout << "Login" << endl;
+            string username, password;
+            showCursor(true);
+            clearScreen();
+            cout << COLOR_CYAN << "\t\t\t\t\t\tEnter username/email: " << COLOR_RESET;
+            username = getInputWithEscapeHandling();
+            username = Validations::sanitizeInput(Validations::trim(username));
+
+            if (username.empty())
+                continue;
+            
+            cout << COLOR_CYAN << "\t\t\t\t\t\tEnter password: " << COLOR_RESET;
+            password = getPasswordInput();
+            password = Validations::sanitizeInput(Validations::trim(password));
+
+            if (password.empty())
+                continue;
+
+            if (AdminDL::authenticateAdmin(username, password).getUsername() != "")
+            {
+                cout << "admin login";
+                pauseScreen();
+            }
+            else if(UserDL::authenticateUser(username, password).getUsername() != "")
+            {
+                cout << "user login";
+                pauseScreen();
+            }
+            else
+            {
+                cout << COLOR_RED << "\t\t\t\t\t\tInvalid username/email or password!" << COLOR_RESET << endl;
+                pauseScreen();
+            }
         }
         else if (option == 2)
         {
             int roleOptionSelected = selectRole();
             if (roleOptionSelected == 3)
                 continue;
-            clearScreen();
             showCursor(true);
             Person person(signUp());
             if (roleOptionSelected == 1 && person.getUsername() != "" && person.getPassword() != "")
@@ -802,8 +879,8 @@ string getInputWithEscapeHandling()
         { // Backspace (ASCII 8)
             if (!input.empty())
             {
-                cout << "\t\t\t\t\t\t\b"; // Move back and overwrite with space
-                input.pop_back();         // Remove last character from input
+                cout << "\b \b";  // Move back and overwrite with space
+                input.pop_back(); // Remove last character from input
             }
         }
         else if (ch == 9) // continue if tab is pressed
@@ -837,8 +914,8 @@ string getPasswordInput()
         { // Backspace (ASCII 8)
             if (!input.empty())
             {
-                cout << "\t\t\t\t\t\t\b \b"; // Move back and overwrite with space
-                input.pop_back();            // Remove last character from input
+                cout << "\b \b";  // Move back and overwrite with space
+                input.pop_back(); // Remove last character from input
             }
         }
         else if (ch == 9) // continue if tab is pressed
@@ -861,43 +938,101 @@ Person signUp()
     string username, password, email;
 
     // Get username
-    cout << "\t\t\t\t\t\tEnter username: ";
-    username = getInputWithEscapeHandling();
-    username = Validations::sanitizeInput(Validations::trim(username));
-    if (username.empty())
-        return Person(); // If ESC was pressed, stop here
-
-    if (!Validations::validateUsername(username))
+    while (true)
     {
-        cout << COLOR_RED << "\t\t\t\t\t\tUsername must be at least 3 characters long!" << COLOR_RESET << "\n";
-        pauseScreen();
-        return Person();
+        clearScreen();
+        cout <<COLOR_CYAN << "\t\t\t\t\t\tEnter username: " << COLOR_RESET;
+        username = getInputWithEscapeHandling();
+        username = Validations::sanitizeInput(Validations::trim(username));
+
+        if (username.empty())
+            return Person(); // If ESC was pressed, stop here
+
+        if (!Validations::validateUsername(username))
+        {
+            cout << COLOR_RED << "\t\t\t\t\t\tUsername must be at least 3 characters and at most 8 characters long!" << COLOR_RESET << "\n";
+            pauseScreen();
+            continue;
+        }
+        else if (AdminDL::adminExists(username) || UserDL::userExists(username))
+        {
+            cout << COLOR_RED << "\t\t\t\t\t\tUsername already exists!" << COLOR_RESET << "\n";
+            pauseScreen();
+            continue;
+        }
+        else
+        {
+            break;
+        }
     }
 
     // Get password
-    cout << "\t\t\t\t\t\tEnter password: ";
-    password = getPasswordInput();
-    password = Validations::sanitizeInput(Validations::trim(password));
-    if (password.empty())
-        return Person(); // If ESC was pressed, stop here
-
-    if (!Validations::validatePassword(password))
+    while (true)
     {
-        cout << COLOR_RED << "\t\t\t\t\t\tPassword must be at least 6 characters long and include "
-             << "a special character, a capital letter, a number, and a lowercase letter." << COLOR_RESET << "\n";
-        pauseScreen();
-        return Person();
+        clearScreen();
+        cout << COLOR_MAGENTA << "\t\t\t\t\t\tPassword must be at least 6 characters long and include "
+             << "a special \n\t\t\t\t\t\tcharacter, a capital letter, a number, and a lowercase letter." << COLOR_RESET << "\n";
+        cout << COLOR_MAGENTA << "\t\t\t\t\t\tEnter \"gen\" to generate a random password!" <<endl<< COLOR_RESET;
+        cout << COLOR_CYAN << "\t\t\t\t\t\tEnter password: "<< COLOR_RESET;
+        password = getPasswordInput();
+        password = Validations::sanitizeInput(Validations::trim(password));
+
+        if(password == "gen")
+        {
+            password = RandomPassword::generatePassword();
+            cout << COLOR_GREEN << "\t\t\t\t\t\tGenerated password: " << password << COLOR_RESET << endl;
+            char option;
+            cout << COLOR_CYAN << "\n\t\t\t\t\t\tDo you want to use this password? (Y/N): " << COLOR_RESET;
+            option = getch();
+            if (option == 'Y' || option == 'y')
+            {
+                break;
+            }
+            else
+            {
+                continue;
+            }
+        }
+
+        if (password.empty())
+            return Person(); // If ESC was pressed, stop here
+
+        if (!Validations::validatePassword(password))
+        {
+            cout << COLOR_RED << "\t\t\t\t\t\tPassword must be at least 6 characters long and include "
+                 << "a special \n\t\t\t\t\t\tcharacter, a capital letter, a number, and a lowercase letter." << COLOR_RESET << "\n";
+            pauseScreen();
+            return Person();
+        }
+        else
+        {
+            break;
+        }
     }
 
     // Get email
-    cout << "\t\t\t\t\t\tEnter email: ";
-    email = getInputWithEscapeHandling();
-    email = Validations::sanitizeInput(Validations::trim(email));
-    if (!Validations::validateEmail(email))
+    while (true)
     {
-        cout << COLOR_RED << "\t\t\t\t\t\tInvalid email format!" << COLOR_RESET << "\n";
-        pauseScreen();
-        return Person();
+        clearScreen();
+        cout<< COLOR_CYAN << "\t\t\t\t\t\tEnter email: " << COLOR_RESET;
+        email = getInputWithEscapeHandling();
+        email = Validations::sanitizeInput(Validations::trim(email));
+
+        if (email.empty())
+            return Person(); // If ESC was pressed, stop here
+
+
+
+        if (!Validations::validateEmail(email))
+        {
+            cout << COLOR_RED << "\t\t\t\t\t\tInvalid email format!" << COLOR_RESET << "\n";
+            pauseScreen();
+            return Person();
+        }
+        else
+        {
+            break;
+        }
     }
 
     // Success message
