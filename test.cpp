@@ -1,9 +1,9 @@
 #include <iostream>
+#include <string>
+#include <algorithm> // for std::replace
 #include <conio.h> // for getch()
 #include <regex>   // for email validation
 #include <cctype>  // for character checks
-#include <string>
-#include <algorithm> // for std::replace
 
 using namespace std;
 

@@ -5,10 +5,23 @@
 #include <fstream>
 #include <windows.h>
 #include <conio.h>
+#include <algorithm>
+#include <regex>  // for email validation
+#include <cctype> // for character checks
 
 using namespace std;
 
-const string userFilePath = "Files/Users.txt";
+#define USER_FILE_PATH "Files/Users.txt"
+#define ADMIN_FILE_PATH "Files/Admins.txt"
+#define COLOR_RESET "\033[0m"    // Reset to default color
+#define COLOR_BLACK "\033[30m"   // Black
+#define COLOR_RED "\033[31m"     // Red
+#define COLOR_GREEN "\033[32m"   // Green
+#define COLOR_YELLOW "\033[33m"  // Yellow
+#define COLOR_BLUE "\033[34m"    // Blue
+#define COLOR_MAGENTA "\033[35m" // Magenta
+#define COLOR_CYAN "\033[36m"    // Cyan
+#define COLOR_WHITE "\033[37m"   // White
 
 class Person
 {
@@ -263,38 +276,46 @@ public:
     }
 };
 
-// class Admin : public Person
-// {
-// public:
-//     vector<User> getAllUsers()
-//     {
-//         return users;
-//     }
+class Admin : public Person
+{
+public:
+    Admin()
+    {
+    }
 
-//     void editUserPassword(string username, string newPassword)
-//     {
-//         for (int i = 0; i < users.size(); i++)
-//         {
-//             if (users[i].getUsername() == username)
-//             {
-//                 users[i].setPassword(newPassword);
-//                 break;
-//             }
-//         }
-//     }
+    Admin(string username, string password, string email) : Person(username, password, email)
+    {
+    }
 
-//     void deleteUserPassword(string username)
-//     {
-//         for (int i = 0; i < users.size(); i++)
-//         {
-//             if (users[i].getUsername() == username)
-//             {
-//                 users.erase(users.begin() + i);
-//                 break;
-//             }
-//         }
-//     }
-// };
+    // vector<User> getAllUsers()
+    // {
+    //     return users;
+    // }
+
+    // void editUserPassword(string username, string newPassword)
+    // {
+    //     for (int i = 0; i < users.size(); i++)
+    //     {
+    //         if (users[i].getUsername() == username)
+    //         {
+    //             users[i].setPassword(newPassword);
+    //             break;
+    //         }
+    //     }
+    // }
+
+    // void deleteUserPassword(string username)
+    // {
+    //     for (int i = 0; i < users.size(); i++)
+    //     {
+    //         if (users[i].getUsername() == username)
+    //         {
+    //             users.erase(users.begin() + i);
+    //             break;
+    //         }
+    //     }
+    // }
+};
 
 class Encryption
 {
@@ -368,13 +389,126 @@ public:
     }
 };
 
+class Validations
+{
+public:
+    // Static function to trim leading and trailing whitespace
+    static string trim(const string &str)
+    {
+        size_t first = str.find_first_not_of(' ');
+        if (first == string::npos)
+            return ""; // All spaces
+        size_t last = str.find_last_not_of(' ');
+        return str.substr(first, last - first + 1);
+    }
+
+    // Static function to validate username length (must be >= 3)
+    static bool validateUsername(const string &username)
+    {
+        return username.length() >= 3;
+    }
+
+    // Static function to validate password
+    // Must have: 6+ chars, 1 special char, 1 number, 1 capital letter, 1 lowercase
+    static bool validatePassword(const string &password)
+    {
+        if (password.length() < 6)
+            return false;
+
+        bool hasSpecial = false, hasDigit = false, hasUpper = false, hasLower = false;
+
+        for (char c : password)
+        {
+            if (isdigit(c))
+                hasDigit = true;
+            else if (isupper(c))
+                hasUpper = true;
+            else if (islower(c))
+                hasLower = true;
+            else if (ispunct(c))
+                hasSpecial = true;
+        }
+
+        return hasSpecial && hasDigit && hasUpper && hasLower;
+    }
+
+    // Static function to replace certain characters
+    // ',' -> '%('  and ';' -> '%)'
+    static string sanitizeInput(string input)
+    {
+        string sanitizedInput;
+        for (char c : input)
+        {
+            if (c == ',')
+            {
+                sanitizedInput += "%(";
+            }
+            else if (c == ';')
+            {
+                sanitizedInput += "%)";
+            }
+            else
+            {
+                sanitizedInput += c;
+            }
+        }
+        return sanitizedInput;
+    }
+
+    // Static function to validate email format (simple regex check)
+    static bool validateEmail(const string &email)
+    {
+        regex emailPattern(R"((\w+)(\.?)(\w*)@(\w+)\.(\w+))");
+        return regex_match(email, emailPattern);
+    }
+
+    static vector<string> splitAndDecode(const string &line)
+    {
+        vector<string> tokens;
+        string token;
+        bool isEscaped = false;
+        for (size_t i = 0; i < line.length(); ++i)
+        {
+            if (line[i] == '%' && (i + 1 < line.length()))
+            {
+                if (line.substr(i, 2) == "%(")
+                {
+                    token += ','; // Decode ',' from '%('
+                    i += 1;       // Skip the '('
+                    continue;
+                }
+                else if (line.substr(i, 2) == "%)")
+                {
+                    token += ';'; // Decode ';' from '%)'
+                    i += 1;       // Skip the ')'
+                    continue;
+                }
+            }
+            else if (line[i] == ',')
+            {
+                tokens.push_back(token);
+                token.clear();
+            }
+            else
+            {
+                token += line[i];
+            }
+        }
+
+        // Add last token
+        tokens.push_back(token);
+        return tokens;
+    }
+};
+
+// Data Layer Classes
 class UserDL
 {
 public:
     static void addUser(User user)
     {
-        ofstream file(userFilePath, ios::app);
-        file << user.getUsername() <<","<< user.getPassword() << "," << user.getEmail() << endl;
+        ofstream file(USER_FILE_PATH, ios::app);
+        file << user.getUsername() << "," << user.getPassword() << "," << user.getEmail() << endl;
         file.close();
     }
 
@@ -390,7 +524,7 @@ public:
             }
         }
 
-        ofstream file(userFilePath);
+        ofstream file(USER_FILE_PATH);
         for (int i = 0; i < users.size(); i++)
         {
             file << users[i].getUsername() << " " << users[i].getPassword() << " " << users[i].getEmail() << endl;
@@ -410,7 +544,7 @@ public:
             }
         }
 
-        ofstream file(userFilePath);
+        ofstream file(USER_FILE_PATH);
         for (int i = 0; i < users.size(); i++)
         {
             file << users[i].getUsername() << " " << users[i].getPassword() << " " << users[i].getEmail() << endl;
@@ -434,7 +568,7 @@ public:
     vector<User> getUsers()
     {
         vector<User> users;
-        ifstream file(userFilePath);
+        ifstream file(USER_FILE_PATH);
         string username, password, email;
         while (file >> username >> password >> email)
         {
@@ -446,28 +580,116 @@ public:
     }
 };
 
-int displayLandingPage();
+class AdminDL
+{
+public:
+    static void addAdmin(Admin admin)
+    {
+        ofstream file(ADMIN_FILE_PATH, ios::app);
+        file << admin.getUsername() << "," << admin.getPassword() << "," << admin.getEmail() << endl;
+        file.close();
+    }
+
+    static vector<Admin> getAdmins()
+    {
+        vector<Admin> admins;
+        ifstream file(ADMIN_FILE_PATH);
+        string line;
+
+        while (getline(file, line))
+        {
+            vector<string> tokens = Validations::splitAndDecode(line);
+
+            // Each line should have exactly 3 tokens: username, password, email
+            if (tokens.size() == 3)
+            {
+                string username = Validations::trim(tokens[0]);
+                string password = Encryption::decrypt(Validations::trim(tokens[1]));
+                string email = Validations::trim(tokens[2]);
+
+                if (Validations::validateUsername(username) &&
+                    Validations::validatePassword(password) &&
+                    Validations::validateEmail(email))
+                {
+                    admins.push_back(Admin(username, password, email));
+                    cout << "Admin data loaded: " << username << " " << password << " " << email << endl;
+                }
+                else
+                {
+                    cout << "Invalid admin data found in file, skipping: " << line << endl;
+                }
+            }
+        }
+
+        file.close();
+        return admins;
+    }
+
+    static bool adminExists(string input)
+    {
+        vector<Admin> admins = getAdmins();
+        for (int i = 0; i < admins.size(); i++)
+        {
+            if (admins[i].getUsername() == input || admins[i].getEmail() == input)
+            {
+                return true;
+            }
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+};
+
+// control functions
+int movementOfArrow(int x, int y, int minOption, int maxOption);
 void showCursor(bool value);
 void gotoxy(int x, int y);
-int movementOfArrow(int x, int y, int minOption, int maxOption);
 void clearScreen();
+void pauseScreen();
+
+// view functions
+string getInputWithEscapeHandling();
+string getPasswordInput();
+int displayLandingPage();
+int selectRole();
+
+// user input functions
+Person signUp();
 
 int main()
 {
-    while(true)
+    AdminDL::getAdmins();
+    pauseScreen();
+    while (true)
     {
         int option = displayLandingPage();
-        if(option == 1)
+        if (option == 1)
         {
             cout << "Login" << endl;
         }
-        else if(option == 2)
+        else if (option == 2)
         {
+            int roleOptionSelected = selectRole();
+            if (roleOptionSelected == 3)
+                continue;
+            clearScreen();
             showCursor(true);
-            
-            cout << "Register" << endl;
+            Person person(signUp());
+            if (roleOptionSelected == 1 && person.getUsername() != "" && person.getPassword() != "")
+            {
+                Admin admin(person.getUsername(), Encryption::encrypt(person.getPassword()), person.getEmail());
+                AdminDL::addAdmin(admin);
+                pauseScreen();
+            }
+            else if (roleOptionSelected == 2)
+            {
+                cout << "User" << endl;
+            }
+            clearScreen();
         }
-        else if(option == 3)
+        else if (option == 3)
         {
             showCursor(true);
             cout << "Exit" << endl;
@@ -497,7 +719,13 @@ void gotoxy(int x, int y)
 void clearScreen()
 {
     system("cls");
-}   
+}
+
+void pauseScreen()
+{
+    cout << COLOR_BLUE << "\t\t\t\t\t\tPress any key to continue..." << COLOR_RESET;
+    _getch();
+}
 
 int movementOfArrow(int x, int y, int minOption, int maxOption)
 {
@@ -539,10 +767,140 @@ int movementOfArrow(int x, int y, int minOption, int maxOption)
 int displayLandingPage()
 {
     clearScreen();
-    cout << "\33[32m"
+    cout << COLOR_YELLOW
          << "\t\t\t\t\t\tLogin" << endl;
     cout << "\t\t\t\t\t\tRegister" << endl;
     cout << "\t\t\t\t\t\tExit" << endl;
-    cout << "\33[0m";
+    cout << COLOR_RESET;
     return movementOfArrow(45, 0, 1, 3);
+}
+
+int selectRole()
+{
+    clearScreen();
+    cout << COLOR_YELLOW
+         << "\t\t\t\t\t\tAdmin" << endl;
+    cout << "\t\t\t\t\t\tUser" << endl;
+    cout << "\t\t\t\t\t\tGo Back" << endl;
+    cout << COLOR_RESET;
+    return movementOfArrow(45, 0, 1, 3);
+}
+
+string getInputWithEscapeHandling()
+{
+    string input;
+    char ch;
+
+    while ((ch = _getch()) != 13)
+    { // 13 is ASCII for Enter
+        if (ch == 27)
+        { // ESC key (ASCII 27)
+            cout << "\t\t\t\t\t\t\nESC key pressed. Exiting input.\n";
+            return ""; // Return empty string on ESC
+        }
+        else if (ch == 8)
+        { // Backspace (ASCII 8)
+            if (!input.empty())
+            {
+                cout << "\t\t\t\t\t\t\b"; // Move back and overwrite with space
+                input.pop_back();         // Remove last character from input
+            }
+        }
+        else if (ch == 9) // continue if tab is pressed
+        {
+            continue;
+        }
+        else
+        {
+            input.push_back(ch); // Add character to input
+            cout << ch;          // Echo the character to console
+        }
+    }
+    cout << endl; // Move to the next line
+    return input;
+}
+
+// Updated getPasswordInput
+string getPasswordInput()
+{
+    string input;
+    char ch;
+
+    while ((ch = _getch()) != 13)
+    { // 13 is ASCII for Enter
+        if (ch == 27)
+        { // ESC key (ASCII 27)
+            cout << "\t\t\t\t\t\t\nESC key pressed. Exiting input.\n";
+            return ""; // Return empty string on ESC
+        }
+        else if (ch == 8)
+        { // Backspace (ASCII 8)
+            if (!input.empty())
+            {
+                cout << "\t\t\t\t\t\t\b \b"; // Move back and overwrite with space
+                input.pop_back();            // Remove last character from input
+            }
+        }
+        else if (ch == 9) // continue if tab is pressed
+        {
+            continue;
+        }
+        else
+        {
+            input.push_back(ch); // Add character to input
+            cout << '*';         // Mask input with '*'
+        }
+    }
+    cout << endl; // Move to the next line
+    return input;
+}
+
+// Updated signUp function
+Person signUp()
+{
+    string username, password, email;
+
+    // Get username
+    cout << "\t\t\t\t\t\tEnter username: ";
+    username = getInputWithEscapeHandling();
+    username = Validations::sanitizeInput(Validations::trim(username));
+    if (username.empty())
+        return Person(); // If ESC was pressed, stop here
+
+    if (!Validations::validateUsername(username))
+    {
+        cout << COLOR_RED << "\t\t\t\t\t\tUsername must be at least 3 characters long!" << COLOR_RESET << "\n";
+        pauseScreen();
+        return Person();
+    }
+
+    // Get password
+    cout << "\t\t\t\t\t\tEnter password: ";
+    password = getPasswordInput();
+    password = Validations::sanitizeInput(Validations::trim(password));
+    if (password.empty())
+        return Person(); // If ESC was pressed, stop here
+
+    if (!Validations::validatePassword(password))
+    {
+        cout << COLOR_RED << "\t\t\t\t\t\tPassword must be at least 6 characters long and include "
+             << "a special character, a capital letter, a number, and a lowercase letter." << COLOR_RESET << "\n";
+        pauseScreen();
+        return Person();
+    }
+
+    // Get email
+    cout << "\t\t\t\t\t\tEnter email: ";
+    email = getInputWithEscapeHandling();
+    email = Validations::sanitizeInput(Validations::trim(email));
+    if (!Validations::validateEmail(email))
+    {
+        cout << COLOR_RED << "\t\t\t\t\t\tInvalid email format!" << COLOR_RESET << "\n";
+        pauseScreen();
+        return Person();
+    }
+
+    // Success message
+    cout << COLOR_GREEN << "\t\t\t\t\t\tSign up successful!" << COLOR_RESET << endl;
+    return Person(username, password, email);
 }
