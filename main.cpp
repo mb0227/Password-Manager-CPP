@@ -145,13 +145,10 @@ public:
 
         string displayPassword = maskPassword ? maskedPassword : password;
 
-        return std::string(COLOR_CYAN) + "\tID: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + to_string(id) + std::string(COLOR_RESET) + "\n" +
-               std::string(COLOR_CYAN) + "\tUsername: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + username + std::string(COLOR_RESET) + "\n" +
-               std::string(COLOR_CYAN) + "\tPassword: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + displayPassword + std::string(COLOR_RESET) + "\n" +
-               std::string(COLOR_CYAN) + "\tWebsite Name: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + websiteName + std::string(COLOR_RESET) + "\n" +
-               std::string(COLOR_CYAN) + "\tWebsite URL: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + websiteURL + std::string(COLOR_RESET) + "\n" +
-               std::string(COLOR_CYAN) + "\tDate Created: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + dateCreatedStr + std::string(COLOR_RESET) + "\n" +
-               std::string(COLOR_CYAN) + "\tLast Updated: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + lastUpdatedStr + std::string(COLOR_RESET);
+        return std::string(COLOR_CYAN) + "\tWebsite URL: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + websiteURL + std::string(COLOR_RESET) + " " +
+               std::string(COLOR_MAGENTA) + "\t\tPassword: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + displayPassword + std::string(COLOR_RESET) + "\n" +
+               std::string(COLOR_CYAN) + "\tDate Created: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + dateCreatedStr + std::string(COLOR_RESET) + " " +
+               std::string(COLOR_MAGENTA) + "\tLast Updated: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + lastUpdatedStr + std::string(COLOR_RESET);
     }
 
     int getID()
@@ -289,7 +286,7 @@ public:
         return result;
     }
 
-    void sortByDateCreated()
+    void sortByDateUpdated()
     {
         int n = websites.size();
         for (int i = n / 2 - 1; i >= 0; i--)
@@ -308,11 +305,11 @@ public:
         int largest = i;
         int l = 2 * i + 1;
         int r = 2 * i + 2;
-        if (l < n && websites[l].getDateCreated() > websites[largest].getDateCreated())
+        if (l < n && websites[l].getLastUpdated() > websites[largest].getLastUpdated())
         {
             largest = l;
         }
-        if (r < n && websites[r].getDateCreated() > websites[largest].getDateCreated())
+        if (r < n && websites[r].getLastUpdated() > websites[largest].getLastUpdated())
         {
             largest = r;
         }
@@ -963,9 +960,14 @@ int main()
                         displayWebsites:
                         clearScreen();
                         int selectedWebsite = displayUserWebsites(user);
-                        if (selectedWebsite == 0 || selectedWebsite == totalWebsites + 1)
+                        if (selectedWebsite == totalWebsites + 1)
                         {
                             continue;
+                        }
+                        else if (selectedWebsite == 0)
+                        {
+                            user.sortByDateUpdated();
+                            goto displayWebsites;
                         }
                         else
                         {
@@ -1283,27 +1285,41 @@ Person signUp()
 int displayUserWebsites(User user)
 {
     vector<Website> websites = user.getWebsites();
-    
-    // Display websites
-    for (int i = 0; i < websites.size(); i++)
+    if (websites.size() > 0)
     {
-        cout << "   " << COLOR_YELLOW << i + 1 << "). " << COLOR_RESET << COLOR_CYAN << websites[i].toString(true) << COLOR_RESET << endl;
+        gotoxy(93, 0); // Position for "Sort by Last Updated"
+        cout << COLOR_GREEN << "Sort by Last Updated(S)" << COLOR_RESET << endl;
+    }
+
+    // Display websites
+    int i = 0;
+    for (i; i < websites.size(); i++)
+    {
+        if(i > 8)
+            cout << "  ";
+        else
+            cout << "   ";
+        cout << COLOR_YELLOW << i + 1 << "). " << COLOR_RESET << COLOR_CYAN << websites[i].toString(true) << COLOR_RESET << endl;
     }
     
-    // Display Go back option
-    cout << "   " << COLOR_BLUE << websites.size() + 1 << "). " << COLOR_RESET << COLOR_CYAN << "Go back" << COLOR_RESET << endl;
+    if(i > 8)
+            cout << "  ";
+        else
+            cout << "   ";
+    cout << COLOR_BLUE << websites.size() + 1 << "). " << COLOR_RESET << COLOR_CYAN << "Go back" << COLOR_RESET << endl;
 
-    // Move arrow through options (1 to size+1)
-    return movementOfArrow(0, 0, 1, websites.size() + 1, 7);
+    // Start from "Go back" and move through options
+    return movementOfArrow(0, 1, 1, websites.size() + 1, 2); 
 }
 
-int movementOfArrow(int x, int y, int minOption, int maxOption, int lineJump)
+int movementOfArrow(int x, int y, int currentOption, int maxOption, int lineJump)
 {
     int key;
     showCursor(false);
+
+    // Set cursor position at the start (Go back)
     gotoxy(x, y);
-    cout << "\33[32m"
-         << "o>";
+    cout << "\33[32m" << "o>";
 
     do
     {
@@ -1315,27 +1331,30 @@ int movementOfArrow(int x, int y, int minOption, int maxOption, int lineJump)
 
         if (key == 72) // Up arrow key
         {
-            if (minOption > 1)
+            if (currentOption > 1)
             {
-                // Move up 7 lines
-                minOption -= 1; // Adjust to move one option at a time
-                y = y - lineJump; // Move arrow up
+                currentOption--;
+                y -= lineJump; // Move up 7 lines
             }
         }
         else if (key == 80) // Down arrow key
         {
-            if (minOption < maxOption)
+            if (currentOption < maxOption)
             {
-                // Move down 7 lines
-                minOption += 1; // Adjust to move one option at a time
-                y = y + lineJump; // Move arrow down
+                currentOption++;
+                y += lineJump; // Move down 7 lines
             }
         }
+        else if (key == 'S' || key == 's') // Sort option key
+        {
+            return 0; // Return 0 for "Sort by Last Updated"
+        }
 
-        // Draw new arrow
+        // Draw new arrow at updated position
         gotoxy(x, y);
         cout << "o>";
 
-    } while (key != 13); // 13 is the ASCII code for Enter key
-    return minOption;
+    } while (key != 13); // Enter key to select an option
+
+    return currentOption;
 }
