@@ -107,22 +107,51 @@ public:
         this->lastUpdated = time(0);
     }
 
-    Website(int id, string username, string password, string websiteName, string websiteURL)
+    Website(int id, string username, string password, string websiteName, string websiteURL, time_t dateCreated, time_t dateUpdated)
     {
         this->id = id;
         this->username = username;
         this->password = password;
         this->websiteName = websiteName;
         this->websiteURL = websiteURL;
-        this->dateCreated = time(0);
-        this->lastUpdated = time(0);
+        this->dateCreated = dateCreated;
+        this->lastUpdated = dateUpdated;
     }
 
     int assignID();
 
-    string toString()
+    string toString(bool maskPassword)
     {
-        return "ID: " + to_string(id) + " Username: " + username + " Password: " + password + " Website Name: " + websiteName + " Website URL: " + websiteURL + " Date Created: " + ctime(&dateCreated) + " Last Updated: " + ctime(&lastUpdated);
+        string dateCreatedStr = ctime(&dateCreated);
+        string lastUpdatedStr = ctime(&lastUpdated);
+        string maskedPassword = "";
+        // Remove the newline character at the end of the ctime string
+        if (!dateCreatedStr.empty() && dateCreatedStr.back() == '\n')
+        {
+            dateCreatedStr.pop_back(); // Removes the last character if it's a newline
+        }
+        if (!lastUpdatedStr.empty() && lastUpdatedStr.back() == '\n')
+        {
+            lastUpdatedStr.pop_back(); // Removes the last character if it's a newline
+        }
+
+        if (maskPassword)
+        {
+            for (int i = 0; i < password.size(); i++)
+            {
+                maskedPassword += '*';
+            }
+        }
+
+        string displayPassword = maskPassword ? maskedPassword : password;
+
+        return std::string(COLOR_CYAN) + "\tID: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + to_string(id) + std::string(COLOR_RESET) + "\n" +
+               std::string(COLOR_CYAN) + "\tUsername: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + username + std::string(COLOR_RESET) + "\n" +
+               std::string(COLOR_CYAN) + "\tPassword: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + displayPassword + std::string(COLOR_RESET) + "\n" +
+               std::string(COLOR_CYAN) + "\tWebsite Name: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + websiteName + std::string(COLOR_RESET) + "\n" +
+               std::string(COLOR_CYAN) + "\tWebsite URL: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + websiteURL + std::string(COLOR_RESET) + "\n" +
+               std::string(COLOR_CYAN) + "\tDate Created: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + dateCreatedStr + std::string(COLOR_RESET) + "\n" +
+               std::string(COLOR_CYAN) + "\tLast Updated: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + lastUpdatedStr + std::string(COLOR_RESET);
     }
 
     int getID()
@@ -227,7 +256,7 @@ public:
         string result = "User: " + getUsername() + "\n" + "Email: " + getEmail();
         for (int i = 0; i < websites.size(); i++)
         {
-            result += websites[i].toString() + "\n";
+            result += websites[i].toString(true) + "\n";
         }
         return result;
     }
@@ -793,15 +822,15 @@ public:
             {
                 int id = stoi(tokens[0]);
                 string username = Validations::trim(tokens[1]);
-                string password = Validations::trim(tokens[2]);
+                string password = Encryption::decrypt(Validations::trim(tokens[2]));
                 string websiteName = Validations::trim(tokens[3]);
                 string websiteURL = Validations::trim(tokens[4]);
-                time_t dateCreated = stoi(tokens[5]);
-                time_t lastUpdated = stoi(tokens[6]);
+                time_t dateCreated = stoi(Validations::trim(tokens[5]));
+                time_t lastUpdated = stoi(Validations::trim(tokens[6]));
 
                 if (username != "" && password != "" && websiteName != "" && websiteURL != "")
                 {
-                    websites.push_back(Website(id, username, password, websiteName, websiteURL));
+                    websites.push_back(Website(id, username, password, websiteName, websiteURL, dateCreated, lastUpdated));
                 }
                 else
                 {
@@ -875,7 +904,7 @@ vector<User> UserDL::getUsers()
 }
 
 // control functions
-int movementOfArrow(int x, int y, int minOption, int maxOption);
+int movementOfArrow(int x, int y, int minOption, int maxOption, int lineJump);
 void showCursor(bool value);
 void gotoxy(int x, int y);
 void clearScreen();
@@ -883,7 +912,7 @@ void pauseScreen();
 
 // view functions
 string getInputWithEscapeHandling();
-void displayUserWebsites(User user);
+int displayUserWebsites(User user);
 int displayUserLandingPage();
 string getPasswordInput();
 int displayLandingPage();
@@ -924,18 +953,49 @@ int main()
             else if (UserDL::authenticateUser(username, password).getUsername() != "")
             {
                 User user = UserDL::getUserByUsername(username);
-                while(true)
+                while (true)
                 {
                     clearScreen();
                     int option = displayUserLandingPage();
-                    if(option == 1)
+                    int totalWebsites = user.getWebsites().size();
+                    if (option == 1)
                     {
+                        displayWebsites:
                         clearScreen();
-                        displayUserWebsites(user);
-                        pauseScreen();
+                        int selectedWebsite = displayUserWebsites(user);
+                        if (selectedWebsite == 0 || selectedWebsite == totalWebsites + 1)
+                        {
+                            continue;
+                        }
+                        else
+                        {
+                            clearScreen();
+                            cout <<  user.getWebsites()[selectedWebsite - 1].toString(false) << endl;
+                            pauseScreen();
+                            goto displayWebsites;
+                        }
+                    }
+                    else if (option == 2)
+                    {
+                        // add website
+                    }
+                    else if (option == 6)
+                    {
+                        char option;
+                        cout << COLOR_RED << "\n\t\t\t\t\t\tDo you want to log out? (Y/N): " << COLOR_RESET;
+                        showCursor(true);
+                        option = getch();
+                        if (option == 'Y' || option == 'y')
+                        {
+                            showCursor(false);
+                            break;
+                        }
+                        else
+                        {
+                            continue;
+                        }
                     }
                 }
-                pauseScreen();
             }
             else
             {
@@ -965,7 +1025,7 @@ int main()
                 WebsiteDL::addWebsite(website);
                 UserDL::addWebsiteForUserInFile(user.getUsername(), website.getID());
                 user.addWebsite(website);
-                
+
                 pauseScreen();
             }
             clearScreen();
@@ -1008,43 +1068,6 @@ void pauseScreen()
     _getch();
 }
 
-int movementOfArrow(int x, int y, int minOption, int maxOption)
-{
-    int key;
-    showCursor(false);
-    gotoxy(x, y);
-    cout << "\33[32m"
-         << "o>";
-
-    do
-    {
-        key = _getch();
-
-        // Clear previous arrow
-        gotoxy(x, y);
-        cout << "  ";
-
-        if (key == 72 && minOption > 1)
-        {
-            // Move up
-            minOption--;
-            y = y - 1;
-        }
-        else if (key == 80 && minOption < maxOption)
-        {
-            // Move down
-            minOption++;
-            y = y + 1;
-        }
-
-        // Draw new arrow
-        gotoxy(x, y);
-        cout << "o>";
-
-    } while (key != 13); // 13 is the ASCII code for Enter key
-    return minOption;
-}
-
 int displayLandingPage()
 {
     clearScreen();
@@ -1053,7 +1076,7 @@ int displayLandingPage()
     cout << "\t\t\t\t\t\tRegister" << endl;
     cout << "\t\t\t\t\t\tExit" << endl;
     cout << COLOR_RESET;
-    return movementOfArrow(45, 0, 1, 3);
+    return movementOfArrow(45, 0, 1, 3, 1);
 }
 
 int selectRole()
@@ -1064,7 +1087,7 @@ int selectRole()
     cout << "\t\t\t\t\t\tUser" << endl;
     cout << "\t\t\t\t\t\tGo Back" << endl;
     cout << COLOR_RESET;
-    return movementOfArrow(45, 0, 1, 3);
+    return movementOfArrow(45, 0, 1, 3, 1);
 }
 
 int displayUserLandingPage()
@@ -1078,7 +1101,7 @@ int displayUserLandingPage()
     cout << "\t\t\t\t\t\tChange Password" << endl;
     cout << "\t\t\t\t\t\tLogout" << endl;
     cout << COLOR_RESET;
-    return movementOfArrow(45, 0, 1, 6);
+    return movementOfArrow(45, 0, 1, 6, 1);
 }
 
 string getInputWithEscapeHandling()
@@ -1257,11 +1280,62 @@ Person signUp()
     return Person(username, password, email);
 }
 
-void displayUserWebsites(User user)
+int displayUserWebsites(User user)
 {
     vector<Website> websites = user.getWebsites();
+    
+    // Display websites
     for (int i = 0; i < websites.size(); i++)
     {
-        cout << COLOR_YELLOW << i + 1 << "). " << COLOR_RESET << COLOR_CYAN << websites[i].toString() << COLOR_RESET <<endl;
+        cout << "   " << COLOR_YELLOW << i + 1 << "). " << COLOR_RESET << COLOR_CYAN << websites[i].toString(true) << COLOR_RESET << endl;
     }
+    
+    // Display Go back option
+    cout << "   " << COLOR_BLUE << websites.size() + 1 << "). " << COLOR_RESET << COLOR_CYAN << "Go back" << COLOR_RESET << endl;
+
+    // Move arrow through options (1 to size+1)
+    return movementOfArrow(0, 0, 1, websites.size() + 1, 7);
+}
+
+int movementOfArrow(int x, int y, int minOption, int maxOption, int lineJump)
+{
+    int key;
+    showCursor(false);
+    gotoxy(x, y);
+    cout << "\33[32m"
+         << "o>";
+
+    do
+    {
+        key = _getch();
+
+        // Clear previous arrow
+        gotoxy(x, y);
+        cout << "  ";
+
+        if (key == 72) // Up arrow key
+        {
+            if (minOption > 1)
+            {
+                // Move up 7 lines
+                minOption -= 1; // Adjust to move one option at a time
+                y = y - lineJump; // Move arrow up
+            }
+        }
+        else if (key == 80) // Down arrow key
+        {
+            if (minOption < maxOption)
+            {
+                // Move down 7 lines
+                minOption += 1; // Adjust to move one option at a time
+                y = y + lineJump; // Move arrow down
+            }
+        }
+
+        // Draw new arrow
+        gotoxy(x, y);
+        cout << "o>";
+
+    } while (key != 13); // 13 is the ASCII code for Enter key
+    return minOption;
 }
