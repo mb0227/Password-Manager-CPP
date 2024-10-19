@@ -6,13 +6,15 @@
 #include <windows.h>
 #include <conio.h>
 #include <algorithm>
-#include <regex> 
+#include <regex>
 #include <cctype>
 
 using namespace std;
 
 #define USER_FILE_PATH "Files/Users.txt"
 #define ADMIN_FILE_PATH "Files/Admins.txt"
+#define WEBSITE_FILE_PATH "Files/Websites.txt"
+
 #define COLOR_RESET "\033[0m"    // Reset to default color
 #define COLOR_BLACK "\033[30m"   // Black
 #define COLOR_RED "\033[31m"     // Red
@@ -81,6 +83,7 @@ public:
 class Website
 {
 private:
+    int id;
     string username;
     string password;
     string websiteName;
@@ -89,8 +92,13 @@ private:
     time_t lastUpdated;
 
 public:
+    Website()
+    {
+    }
+
     Website(string username, string password, string websiteName, string websiteURL)
     {
+        this->id = assignID();
         this->username = username;
         this->password = password;
         this->websiteName = websiteName;
@@ -99,9 +107,27 @@ public:
         this->lastUpdated = time(0);
     }
 
+    Website(int id, string username, string password, string websiteName, string websiteURL)
+    {
+        this->id = id;
+        this->username = username;
+        this->password = password;
+        this->websiteName = websiteName;
+        this->websiteURL = websiteURL;
+        this->dateCreated = time(0);
+        this->lastUpdated = time(0);
+    }
+
+    int assignID();
+
     string toString()
     {
-        return "Username: " + username + "\nPassword: " + password + "\nWebsite Name: " + websiteName + "\nWebsite URL: " + websiteURL + "\nDate Created: " + ctime(&dateCreated) + "\nLast Updated: " + ctime(&lastUpdated);
+        return "ID: " + to_string(id) + " Username: " + username + " Password: " + password + " Website Name: " + websiteName + " Website URL: " + websiteURL + " Date Created: " + ctime(&dateCreated) + " Last Updated: " + ctime(&lastUpdated);
+    }
+
+    int getID()
+    {
+        return id;
     }
 
     string getUsername()
@@ -380,7 +406,7 @@ public:
     static string generatePassword()
     {
         string password = "";
-        string characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()_+";
+        string characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()_+-={}[]|;.<>?";
         for (int i = 0; i <= 8; i++)
         {
             password += characters[rand() % characters.size()];
@@ -400,6 +426,21 @@ public:
             return ""; // All spaces
         size_t last = str.find_last_not_of(' ');
         return str.substr(first, last - first + 1);
+    }
+
+    static vector<string> split(const string &str, char delimiter)
+    {
+        vector<string> tokens;
+        string token;
+        stringstream ss(str);
+
+        // Use getline to split based on the delimiter
+        while (getline(ss, token, delimiter))
+        {
+            tokens.push_back(token);
+        }
+
+        return tokens;
     }
 
     // Static function to validate username length (must be >= 3)
@@ -508,38 +549,65 @@ public:
     static void addUser(User user)
     {
         ofstream file(USER_FILE_PATH, ios::app);
-        file << user.getUsername() << "," << user.getPassword() << "," << user.getEmail() << endl;
+        file << user.getUsername() << "," << user.getPassword() << "," << user.getEmail() << "," << endl;
         file.close();
     }
 
-    static vector<User> getUsers()
+    static void addWebsiteForUserInFile(string username, int websiteId)
     {
-        vector<User> users;
         ifstream file(USER_FILE_PATH);
+        vector<string> fileData;
         string line;
+        bool userFound = false;
 
         while (getline(file, line))
         {
             vector<string> tokens = Validations::splitAndDecode(line);
 
-            if (tokens.size() == 3)
+            if (tokens.size() == 4)
             {
-                string username = Validations::trim(tokens[0]);
-                string password = Encryption::decrypt(Validations::trim(tokens[1]));
-                string email = Validations::trim(tokens[2]);
-                if (username != "" && password != "" && email != "")
+                string usernameInFile = Validations::trim(tokens[0]);
+                if (usernameInFile == username)
                 {
-                    users.push_back(User(username, password, email));
-                }
-                else
-                {
-                    cout << COLOR_RED << "\t\t\t\t\t\tInvalid user data found in file, skipping: " << line << COLOR_RESET << endl;
+                    userFound = true;
+                    if (!tokens[3].empty())
+                    {
+                        tokens[3] += ";";
+                    }
+                    tokens[3] += to_string(websiteId);
+
+                    line = tokens[0] + "," + tokens[1] + "," + tokens[2] + "," + tokens[3];
                 }
             }
-        }
 
+            fileData.push_back(line);
+        }
         file.close();
-        return users;
+
+        if (userFound)
+        {
+            ofstream outFile(USER_FILE_PATH, ios::trunc);
+            for (const string &updatedLine : fileData)
+            {
+                outFile << updatedLine << endl;
+            }
+            outFile.close();
+        }
+    }
+
+    static vector<User> getUsers();
+
+    static User getUserByUsername(string username)
+    {
+        vector<User> users = getUsers();
+        for (int i = 0; i < users.size(); i++)
+        {
+            if (users[i].getUsername() == username)
+            {
+                return users[i];
+            }
+        }
+        return User();
     }
 
     static bool userExists(string input)
@@ -655,7 +723,7 @@ public:
                 }
                 else
                 {
-                    cout << COLOR_RED<< "\t\t\t\t\t\tInvalid admin data found in file, skipping: " << line << COLOR_RESET<< endl;
+                    cout << COLOR_RED << "\t\t\t\t\t\tInvalid admin data found in file, skipping: " << line << COLOR_RESET << endl;
                 }
             }
         }
@@ -691,6 +759,121 @@ public:
     }
 };
 
+class WebsiteDL
+{
+public:
+    static void addWebsite(Website website)
+    {
+        ofstream file(WEBSITE_FILE_PATH, ios::app);
+        file << website.getID() << "," << website.getUsername() << "," << website.getPassword() << "," << website.getWebsiteName() << "," << website.getWebsiteURL() << "," << website.getDateCreated() << "," << website.getLastUpdated() << endl;
+        file.close();
+    }
+
+    static int getIdForNewWebsite()
+    {
+        vector<Website> websites = getWebsites();
+        if (websites.size() == 0)
+        {
+            return 1; // First website
+        }
+        return websites[websites.size() - 1].getID() + 1; // Increment last ID
+    }
+
+    static vector<Website> getWebsites()
+    {
+        vector<Website> websites;
+        ifstream file(WEBSITE_FILE_PATH);
+        string line;
+
+        while (getline(file, line))
+        {
+            vector<string> tokens = Validations::splitAndDecode(line);
+
+            if (tokens.size() == 7)
+            {
+                int id = stoi(tokens[0]);
+                string username = Validations::trim(tokens[1]);
+                string password = Validations::trim(tokens[2]);
+                string websiteName = Validations::trim(tokens[3]);
+                string websiteURL = Validations::trim(tokens[4]);
+                time_t dateCreated = stoi(tokens[5]);
+                time_t lastUpdated = stoi(tokens[6]);
+
+                if (username != "" && password != "" && websiteName != "" && websiteURL != "")
+                {
+                    websites.push_back(Website(id, username, password, websiteName, websiteURL));
+                }
+                else
+                {
+                    cout << COLOR_RED << "\t\t\t\t\t\tInvalid website data found in file, skipping: " << line << COLOR_RESET << endl;
+                }
+            }
+        }
+
+        file.close();
+        return websites;
+    }
+
+    static Website findWebsiteByID(int id)
+    {
+        vector<Website> websites = getWebsites();
+        for (int i = 0; i < websites.size(); i++)
+        {
+            if (websites[i].getID() == id)
+            {
+                return websites[i];
+            }
+        }
+        return Website();
+    }
+};
+
+int Website::assignID()
+{
+    return WebsiteDL::getIdForNewWebsite();
+}
+
+vector<User> UserDL::getUsers()
+{
+    vector<User> users;
+    ifstream file(USER_FILE_PATH);
+    string line;
+
+    while (getline(file, line))
+    {
+        vector<string> tokens = Validations::splitAndDecode(line);
+
+        if (tokens.size() == 4)
+        {
+            string username = Validations::trim(tokens[0]);
+            string password = Encryption::decrypt(Validations::trim(tokens[1]));
+            string email = Validations::trim(tokens[2]);
+            string websites = Validations::trim(tokens[3]);
+            if (username != "" && password != "" && email != "")
+            {
+                User user = User(username, password, email);
+
+                vector<string> websiteIDs = Validations::split(websites, ';');
+
+                for (int i = 0; i < websiteIDs.size(); i++)
+                {
+                    Website website = WebsiteDL::findWebsiteByID(stoi(websiteIDs[i]));
+                    user.addWebsite(website);
+                }
+
+                users.push_back(user);
+            }
+            else
+            {
+                cout << COLOR_RED << "\t\t\t\t\t\tInvalid user data found in file, skipping: " << line << COLOR_RESET << endl;
+            }
+        }
+    }
+
+    file.close();
+    return users;
+}
+
 // control functions
 int movementOfArrow(int x, int y, int minOption, int maxOption);
 void showCursor(bool value);
@@ -700,6 +883,8 @@ void pauseScreen();
 
 // view functions
 string getInputWithEscapeHandling();
+void displayUserWebsites(User user);
+int displayUserLandingPage();
 string getPasswordInput();
 int displayLandingPage();
 int selectRole();
@@ -723,7 +908,7 @@ int main()
 
             if (username.empty())
                 continue;
-            
+
             cout << COLOR_CYAN << "\t\t\t\t\t\tEnter password: " << COLOR_RESET;
             password = getPasswordInput();
             password = Validations::sanitizeInput(Validations::trim(password));
@@ -736,9 +921,20 @@ int main()
                 cout << "admin login";
                 pauseScreen();
             }
-            else if(UserDL::authenticateUser(username, password).getUsername() != "")
+            else if (UserDL::authenticateUser(username, password).getUsername() != "")
             {
-                cout << "user login";
+                User user = UserDL::getUserByUsername(username);
+                while(true)
+                {
+                    clearScreen();
+                    int option = displayUserLandingPage();
+                    if(option == 1)
+                    {
+                        clearScreen();
+                        displayUserWebsites(user);
+                        pauseScreen();
+                    }
+                }
                 pauseScreen();
             }
             else
@@ -760,9 +956,17 @@ int main()
                 AdminDL::addAdmin(admin);
                 pauseScreen();
             }
-            else if (roleOptionSelected == 2)
+            else if (roleOptionSelected == 2 && person.getUsername() != "" && person.getPassword() != "")
             {
-                cout << "User" << endl;
+                User user(person.getUsername(), Encryption::encrypt(person.getPassword()), person.getEmail());
+                UserDL::addUser(user);
+
+                Website website("website 1", "pass", "Facebook", "www.facebook.com");
+                WebsiteDL::addWebsite(website);
+                UserDL::addWebsiteForUserInFile(user.getUsername(), website.getID());
+                user.addWebsite(website);
+                
+                pauseScreen();
             }
             clearScreen();
         }
@@ -863,6 +1067,20 @@ int selectRole()
     return movementOfArrow(45, 0, 1, 3);
 }
 
+int displayUserLandingPage()
+{
+    clearScreen();
+    cout << COLOR_YELLOW
+         << "\t\t\t\t\t\tView Websites" << endl;
+    cout << "\t\t\t\t\t\tAdd Website" << endl;
+    cout << "\t\t\t\t\t\tEdit Website" << endl;
+    cout << "\t\t\t\t\t\tDelete Website" << endl;
+    cout << "\t\t\t\t\t\tChange Password" << endl;
+    cout << "\t\t\t\t\t\tLogout" << endl;
+    cout << COLOR_RESET;
+    return movementOfArrow(45, 0, 1, 6);
+}
+
 string getInputWithEscapeHandling()
 {
     string input;
@@ -941,7 +1159,7 @@ Person signUp()
     while (true)
     {
         clearScreen();
-        cout <<COLOR_CYAN << "\t\t\t\t\t\tEnter username: " << COLOR_RESET;
+        cout << COLOR_CYAN << "\t\t\t\t\t\tEnter username: " << COLOR_RESET;
         username = getInputWithEscapeHandling();
         username = Validations::sanitizeInput(Validations::trim(username));
 
@@ -972,12 +1190,13 @@ Person signUp()
         clearScreen();
         cout << COLOR_MAGENTA << "\t\t\t\t\t\tPassword must be at least 6 characters long and include "
              << "a special \n\t\t\t\t\t\tcharacter, a capital letter, a number, and a lowercase letter." << COLOR_RESET << "\n";
-        cout << COLOR_MAGENTA << "\t\t\t\t\t\tEnter \"gen\" to generate a random password!" <<endl<< COLOR_RESET;
-        cout << COLOR_CYAN << "\t\t\t\t\t\tEnter password: "<< COLOR_RESET;
+        cout << COLOR_MAGENTA << "\t\t\t\t\t\tEnter \"gen\" to generate a random password!" << endl
+             << COLOR_RESET;
+        cout << COLOR_CYAN << "\t\t\t\t\t\tEnter password: " << COLOR_RESET;
         password = getPasswordInput();
         password = Validations::sanitizeInput(Validations::trim(password));
 
-        if(password == "gen")
+        if (password == "gen")
         {
             password = RandomPassword::generatePassword();
             cout << COLOR_GREEN << "\t\t\t\t\t\tGenerated password: " << password << COLOR_RESET << endl;
@@ -1014,14 +1233,12 @@ Person signUp()
     while (true)
     {
         clearScreen();
-        cout<< COLOR_CYAN << "\t\t\t\t\t\tEnter email: " << COLOR_RESET;
+        cout << COLOR_CYAN << "\t\t\t\t\t\tEnter email: " << COLOR_RESET;
         email = getInputWithEscapeHandling();
         email = Validations::sanitizeInput(Validations::trim(email));
 
         if (email.empty())
             return Person(); // If ESC was pressed, stop here
-
-
 
         if (!Validations::validateEmail(email))
         {
@@ -1038,4 +1255,13 @@ Person signUp()
     // Success message
     cout << COLOR_GREEN << "\t\t\t\t\t\tSign up successful!" << COLOR_RESET << endl;
     return Person(username, password, email);
+}
+
+void displayUserWebsites(User user)
+{
+    vector<Website> websites = user.getWebsites();
+    for (int i = 0; i < websites.size(); i++)
+    {
+        cout << COLOR_YELLOW << i + 1 << "). " << COLOR_RESET << COLOR_CYAN << websites[i].toString() << COLOR_RESET <<endl;
+    }
 }
