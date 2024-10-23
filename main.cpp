@@ -219,10 +219,9 @@ public:
 
 class User : public Person
 {
-private:
+public:
     vector<Website> websites;
 
-public:
     User()
     {
     }
@@ -350,35 +349,6 @@ public:
     Admin(string username, string password, string email) : Person(username, password, email)
     {
     }
-
-    // vector<User> getAllUsers()
-    // {
-    //     return users;
-    // }
-
-    // void editUserPassword(string username, string newPassword)
-    // {
-    //     for (int i = 0; i < users.size(); i++)
-    //     {
-    //         if (users[i].getUsername() == username)
-    //         {
-    //             users[i].setPassword(newPassword);
-    //             break;
-    //         }
-    //     }
-    // }
-
-    // void deleteUserPassword(string username)
-    // {
-    //     for (int i = 0; i < users.size(); i++)
-    //     {
-    //         if (users[i].getUsername() == username)
-    //         {
-    //             users.erase(users.begin() + i);
-    //             break;
-    //         }
-    //     }
-    // }
 };
 
 class Encryption
@@ -444,7 +414,7 @@ public:
     static string generatePassword()
     {
         string password = "";
-        string characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()_+-={}[]|;.<>?";
+        string characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()_+-={}[]|.<>?";
 
         srand(time(0));
 
@@ -592,7 +562,7 @@ public:
     static void addUser(User user)
     {
         ofstream file(USER_FILE_PATH, ios::app);
-        file << user.getUsername() << "," << user.getPassword() << "," << user.getEmail() << "," << endl;
+        file << user.getUsername() << "," << Encryption::encrypt(user.getPassword()) << "," << user.getEmail() << "," << endl;
         file.close();
     }
 
@@ -797,7 +767,7 @@ public:
         vector<User> users = getUsers();
         for (int i = 0; i < users.size(); i++)
         {
-            if (users[i].getUsername() == username || users[i].getEmail() == username && users[i].getPassword() == password)
+            if ((users[i].getUsername() == username || users[i].getEmail() == username) && users[i].getPassword() == password)
             {
                 return users[i];
             }
@@ -812,7 +782,7 @@ public:
     static void addAdmin(Admin admin)
     {
         ofstream file(ADMIN_FILE_PATH, ios::app);
-        file << admin.getUsername() << "," << admin.getPassword() << "," << admin.getEmail() << endl;
+        file << admin.getUsername() << "," << Encryption::encrypt(admin.getPassword()) << "," << admin.getEmail() << endl;
         file.close();
     }
 
@@ -879,7 +849,7 @@ public:
         vector<Admin> admins = getAdmins();
         for (int i = 0; i < admins.size(); i++)
         {
-            if (admins[i].getUsername() == username || admins[i].getEmail() == username && admins[i].getPassword() == password)
+            if ((admins[i].getUsername() == username || admins[i].getEmail() == username) && admins[i].getPassword() == password)
             {
                 return admins[i];
             }
@@ -1084,29 +1054,30 @@ vector<Website> User::getWebsites()
 int movementOfArrow(int x, int y, int minOption, int maxOption, int lineJump);
 void showCursor(bool value);
 void gotoxy(int x, int y);
+bool showPasswords();
 void clearScreen();
 void pauseScreen();
-bool showPasswords();
 
 // view functions
 int optionSelectedForDisplayedWebsites(int totalWebsites);
+void displayWebsite(Website &website, bool mask);
+User displayUsersNames(string operation);
 string getInputWithEscapeHandling();
-int displayUserWebsites(User user);
+int displayUserWebsites(User userx, vector<Website> websites);
 Website takeNewWebsiteInput();
-int displayUserLandingPage();
 int displayAdminLandingPage();
+int displayUserLandingPage();
 string getPasswordInput();
 int displayLandingPage();
-int selectRole();
-void displayWebsite(Website &website, bool mask);
 void displayUsersData();
-User displayUsersNames(string operation);
+int selectRole();
 
 // user input functions
 Person signUp();
 
 int main()
 {
+    cout << Encryption::encrypt("WHTtISZ") << endl;
     while (true)
     {
         int option = displayLandingPage();
@@ -1180,17 +1151,25 @@ int main()
                                 cout << COLOR_BLUE << i + 1 << "). " << COLOR_RESET << COLOR_CYAN << websites[i].toString(false) << COLOR_RESET << endl;
                             }
                             int totalWebsites = websites.size();
-                            int selectedWebsite = optionSelectedForDisplayedWebsites(totalWebsites);
-                            if (selectedWebsite == totalWebsites + 1 || selectedWebsite == 0)
+                            if (totalWebsites > 0)
                             {
-                                continue;
+                                int selectedWebsite = optionSelectedForDisplayedWebsites(totalWebsites);
+                                if (selectedWebsite == totalWebsites + 1 || selectedWebsite == 0)
+                                {
+                                    continue;
+                                }
+                                clearScreen();
+                                displayWebsite(user.getWebsites()[selectedWebsite - 1], false);
                             }
-                            clearScreen();
-                            displayWebsite(user.getWebsites()[selectedWebsite - 1], false);
+                            else
+                            {
+                                cout << COLOR_RED << "\tNo websites found for this user!" << COLOR_RESET << endl;
+                                pauseScreen();
+                            }
                         }
                         else
                         {
-                            cout << COLOR_RED << "\tNo user found with name such name!" << COLOR_RESET << endl;
+                            cout << COLOR_RED << "\tNo user found with such name!" << COLOR_RESET << endl;
                             pauseScreen();
                         }
                     }
@@ -1212,20 +1191,28 @@ int main()
                                 cout << COLOR_BLUE << i + 1 << "). " << COLOR_RESET << COLOR_CYAN << websites[i].toString(false) << COLOR_RESET << endl;
                             }
                             int totalWebsites = websites.size();
-                            int selectedWebsite = optionSelectedForDisplayedWebsites(totalWebsites);
-                            if (selectedWebsite == totalWebsites + 1 || selectedWebsite == 0)
+                            if (totalWebsites > 0)
                             {
-                                continue;
+                                int selectedWebsite = optionSelectedForDisplayedWebsites(totalWebsites);
+                                if (selectedWebsite == totalWebsites + 1 || selectedWebsite == 0)
+                                {
+                                    continue;
+                                }
+                                clearScreen();
+                                cout << COLOR_RED << "\n\t\t\t\t\t\tAre you sure you want to delete this website? (Y/N): " << COLOR_RESET;
+                                char option = getch();
+                                if (option == 'Y' || option == 'y')
+                                {
+                                    int websiteIdToDelete = user.getWebsites()[selectedWebsite - 1].getID();
+                                    UserDL::deleteUsersWebsites(user, user.getUsername(), websiteIdToDelete);
+                                    WebsiteDL::deleteWebsite(websiteIdToDelete);
+                                    cout << COLOR_GREEN << "\t\t\t\t\t\tWebsite deleted successfully!" << COLOR_RESET << endl;
+                                }
                             }
-                            clearScreen();
-                            cout << COLOR_RED << "\n\t\t\t\t\t\tAre you sure you want to delete this website? (Y/N): " << COLOR_RESET;
-                            char option = getch();
-                            if (option == 'Y' || option == 'y')
+                            else
                             {
-                                int websiteIdToDelete = user.getWebsites()[selectedWebsite - 1].getID();
-                                UserDL::deleteUsersWebsites(user, user.getUsername(), websiteIdToDelete);
-                                WebsiteDL::deleteWebsite(websiteIdToDelete);
-                                cout << COLOR_GREEN << "\t\t\t\t\t\tWebsite deleted successfully!" << COLOR_RESET << endl;
+                                cout << COLOR_RED << "\tNo websites dound for this user!" << COLOR_RESET << endl;
+                                pauseScreen();
                             }
                         }
                         else
@@ -1264,22 +1251,32 @@ int main()
                     {
                     displayWebsites:
                         clearScreen();
-                        int selectedWebsite = displayUserWebsites(user);
-                        if (selectedWebsite == totalWebsites + 1)
+                        if (totalWebsites > 0)
                         {
-                            continue;
-                        }
-                        else if (selectedWebsite == 0)
-                        {
-                            user.sortByDateUpdated();
-                            goto displayWebsites;
+                            int selectedWebsite = displayUserWebsites(user, user.getWebsites());
+                            if (selectedWebsite == totalWebsites + 1)
+                            {
+                                continue;
+                            }
+                            else if (selectedWebsite == 0)
+                            {
+                                user.sortByDateUpdated();
+                                clearScreen();
+                                displayUserWebsites(user, user.websites);
+                                goto displayWebsites;
+                            }
+                            else
+                            {
+                                clearScreen();
+                                cout << user.getWebsites()[selectedWebsite - 1].toString(false) << endl;
+                                pauseScreen();
+                                goto displayWebsites;
+                            }
                         }
                         else
                         {
-                            clearScreen();
-                            cout << user.getWebsites()[selectedWebsite - 1].toString(false) << endl;
+                            cout << COLOR_RED << "\tNo websites dound for this user!" << COLOR_RESET << endl;
                             pauseScreen();
-                            goto displayWebsites;
                         }
                     }
                     else if (option == 2) // add website
@@ -1292,50 +1289,70 @@ int main()
                             UserDL::addWebsiteForUserInFile(user.getUsername(), website.getID());
                             user.addWebsite(website);
                             cout << COLOR_GREEN << "\t\t\t\t\t\tWebsite added successful!" << COLOR_RESET << endl;
+                            pauseScreen();
                         }
                     }
                     else if (option == 3) // edit website
                     {
                         clearScreen();
                         int totalWebsites = user.getWebsites().size();
-                    displayWebs:
-                        int selectedWebsite = displayUserWebsites(user);
-                        if (selectedWebsite == totalWebsites + 1)
+                        if (totalWebsites > 0)
                         {
-                            continue;
+                        displayWebs:
+                            int selectedWebsite = displayUserWebsites(user, user.getWebsites());
+                            if (selectedWebsite == totalWebsites + 1)
+                            {
+                                continue;
+                            }
+                            else if (selectedWebsite == 0)
+                            {
+                                user.sortByDateUpdated();
+                                clearScreen();
+                                displayUserWebsites(user, user.websites);
+                                goto displayWebs;
+                            }
+                            clearScreen();
+                            displayWebsite(user.getWebsites()[selectedWebsite - 1], true);
                         }
-                        else if (selectedWebsite == 0)
+                        else
                         {
-                            user.sortByDateUpdated();
-                            goto displayWebs;
+                            cout << COLOR_RED << "\tNo websites dound for this user!" << COLOR_RESET << endl;
+                            pauseScreen();
                         }
-                        clearScreen();
-                        displayWebsite(user.getWebsites()[selectedWebsite - 1], true);
                     }
                     else if (option == 4) // delete website
                     {
                         clearScreen();
                         int totalWebsites = user.getWebsites().size();
-                        int selectedWebsite = displayUserWebsites(user);
-                        if (selectedWebsite == totalWebsites + 1)
+                        if (totalWebsites > 0)
                         {
-                            continue;
+                            int selectedWebsite = displayUserWebsites(user, user.getWebsites());
+                            if (selectedWebsite == totalWebsites + 1)
+                            {
+                                continue;
+                            }
+                            else if (selectedWebsite == 0)
+                            {
+                                user.sortByDateUpdated();     
+                                clearScreen();
+                                displayUserWebsites(user, user.websites);                           
+                            }
+                            clearScreen();
+                            cout << COLOR_RED << "\n\t\t\t\t\t\tAre you sure you want to delete this website? (Y/N): " << COLOR_RESET;
+                            char option = getch();
+                            if (option == 'Y' || option == 'y')
+                            {
+                                int websiteIdToDelete = user.getWebsites()[selectedWebsite - 1].getID();
+                                UserDL::deleteUsersWebsites(user, user.getUsername(), websiteIdToDelete);
+                                WebsiteDL::deleteWebsite(websiteIdToDelete);
+                                cout << COLOR_GREEN << "\n\t\t\t\t\t\tWebsite deleted successfully!" << COLOR_RESET << endl;
+                                pauseScreen();
+                            }
                         }
-                        else if (selectedWebsite == 0)
+                        else
                         {
-                            user.sortByDateUpdated();
-                        }
-                        clearScreen();
-                        cout << COLOR_RED << "\n\t\t\t\t\t\tAre you sure you want to delete this website? (Y/N): " << COLOR_RESET;
-                        char option = getch();
-                        if (option == 'Y' || option == 'y')
-                        {
-                            int websiteIdToDelete = user.getWebsites()[selectedWebsite - 1].getID();
-                            cout << websiteIdToDelete;
+                            cout << COLOR_RED << "\tNo websites dound for this user!" << COLOR_RESET << endl;
                             pauseScreen();
-                            UserDL::deleteUsersWebsites(user, user.getUsername(), websiteIdToDelete);
-                            WebsiteDL::deleteWebsite(websiteIdToDelete);
-                            cout << COLOR_GREEN << "\t\t\t\t\t\tWebsite deleted successfully!" << COLOR_RESET << endl;
                         }
                     }
                     else if (option == 5) // search website
@@ -1415,15 +1432,13 @@ int main()
             Person person(signUp());
             if (roleOptionSelected == 1 && person.getUsername() != "" && person.getPassword() != "")
             {
-                Admin admin(person.getUsername(), Encryption::encrypt(person.getPassword()), person.getEmail());
+                Admin admin(person.getUsername(), person.getPassword(), person.getEmail());
                 AdminDL::addAdmin(admin);
-                pauseScreen();
             }
             else if (roleOptionSelected == 2 && person.getUsername() != "" && person.getPassword() != "")
             {
-                User user(person.getUsername(), Encryption::encrypt(person.getPassword()), person.getEmail());
+                User user(person.getUsername(), person.getPassword(), person.getEmail());
                 UserDL::addUser(user);
-                pauseScreen();
             }
             clearScreen();
         }
@@ -1676,6 +1691,12 @@ Person signUp()
             pauseScreen();
             return Person();
         }
+        else if (AdminDL::adminExists(email) || UserDL::userExists(email))
+        {
+            cout << COLOR_RED << "\t\t\t\t\t\tEmail already exists!" << COLOR_RESET << "\n";
+            pauseScreen();
+            continue;
+        }
         else
         {
             break;
@@ -1688,7 +1709,7 @@ Person signUp()
     return Person(username, password, email);
 }
 
-// int displayUserWebsites(User user)
+// int displayUserWebsites(User user, vector<Website> websites)
 // {
 //     vector<Website> websites = user.getWebsites();
 //     if (websites.size() > 0)
@@ -1717,9 +1738,8 @@ Person signUp()
 //     return movementOfArrow(0, 1, 1, websites.size() + 1, 2);
 // }
 
-int displayUserWebsites(User user)
+int displayUserWebsites(User user, vector<Website> websites)
 {
-    vector<Website> websites = user.getWebsites();
     if (websites.size() > 0)
     {
         gotoxy(93, 0);
