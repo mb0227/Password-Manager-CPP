@@ -27,7 +27,7 @@ using namespace std;
 
 class Person
 {
-private:
+protected:
     string username;
     string password;
     string email;
@@ -236,11 +236,11 @@ public:
         websites.push_back(website);
     }
 
-    void removeWebsite(string websiteURL)
+    void removeWebsite(int websiteID)
     {
         for (int i = 0; i < websites.size(); i++)
         {
-            if (websites[i].getWebsiteURL() == websiteURL)
+            if (websites[i].getID() == websiteID)
             {
                 websites.erase(websites.begin() + i);
                 break;
@@ -258,10 +258,7 @@ public:
         return result;
     }
 
-    vector<Website> getWebsites()
-    {
-        return websites;
-    }
+    vector<Website> getWebsites();
 
     void setWebsites(vector<Website> websites)
     {
@@ -579,6 +576,63 @@ public:
         file.close();
     }
 
+    static void deleteUsersWebsites(User user, string username, int websiteID)
+    {
+        ifstream file(USER_FILE_PATH);
+        vector<string> fileData;
+        string line;
+        bool userFound = false;
+
+        while (getline(file, line))
+        {
+            vector<string> tokens = Validations::splitAndDecode(line);
+
+            if (tokens.size() == 4)
+            {
+                string usernameInFile = Validations::trim(tokens[0]);
+                if (usernameInFile == username)
+                {
+                    userFound = true;
+                    vector<string> websiteIDs = Validations::split(tokens[3], ';');
+                    for (int i = 0; i < websiteIDs.size(); i++)
+                    {
+                        if (stoi(websiteIDs[i]) == websiteID)
+                        {
+                            websiteIDs.erase(websiteIDs.begin() + i);
+                            break;
+                        }
+                    }
+
+                    string updatedWebsites;
+                    for (int i = 0; i < websiteIDs.size(); i++)
+                    {
+                        updatedWebsites += websiteIDs[i];
+                        if (i != websiteIDs.size() - 1)
+                        {
+                            updatedWebsites += ";";
+                        }
+                    }
+
+                    line = tokens[0] + "," + tokens[1] + "," + tokens[2] + "," + updatedWebsites;
+                }
+            }
+
+            fileData.push_back(line);
+        }
+        file.close();
+
+        if (userFound)
+        {
+            ofstream outFile(USER_FILE_PATH, ios::trunc);
+            for (const string &updatedLine : fileData)
+            {
+                outFile << updatedLine << endl;
+            }
+            outFile.close();
+        }
+        user.removeWebsite(websiteID);
+    }
+
     static void addWebsiteForUserInFile(string username, int websiteId)
     {
         ifstream file(USER_FILE_PATH);
@@ -649,7 +703,7 @@ public:
         return false;
     }
 
-    void updateUser(User user)
+    static void updateUser(User user)
     {
         vector<User> users = getUsers();
         for (int i = 0; i < users.size(); i++)
@@ -664,7 +718,15 @@ public:
         ofstream file(USER_FILE_PATH);
         for (int i = 0; i < users.size(); i++)
         {
-            file << users[i].getUsername() << " " << users[i].getPassword() << " " << users[i].getEmail() << endl;
+            file << users[i].getUsername() << "," << users[i].getPassword() << "," << users[i].getEmail() << ",";
+            for (int j = 0; j < users[i].getWebsites().size(); j++)
+            {
+                file << users[i].getWebsites()[j].getID();
+                if (j != users[i].getWebsites().size() - 1)
+                {
+                    file << ";";
+                }
+            }
         }
         file.close();
     }
@@ -684,7 +746,15 @@ public:
         ofstream file(USER_FILE_PATH);
         for (int i = 0; i < users.size(); i++)
         {
-            file << users[i].getUsername() << " " << users[i].getPassword() << " " << users[i].getEmail() << endl;
+            file << users[i].getUsername() << "," << users[i].getPassword() << "," << users[i].getEmail() << ",";
+            for (int j = 0; j < users[i].getWebsites().size(); j++)
+            {
+                file << users[i].getWebsites()[j].getID();
+                if (j != users[i].getWebsites().size() - 1)
+                {
+                    file << ";";
+                }
+            }
         }
         file.close();
     }
@@ -852,6 +922,59 @@ public:
         }
         return Website();
     }
+
+    static bool websiteExists(string givenString)
+    {
+        vector<Website> websites = getWebsites();
+        for (int i = 0; i < websites.size(); i++)
+        {
+            if (websites[i].getWebsiteURL() == givenString || websites[i].getWebsiteName() == givenString) // checks for both url and website name
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static void editWebsite(Website website)
+    {
+        vector<Website> websites = getWebsites();
+        for (int i = 0; i < websites.size(); i++)
+        {
+            if (websites[i].getID() == website.getID())
+            {
+                websites[i] = website;
+                break;
+            }
+        }
+
+        ofstream file(WEBSITE_FILE_PATH);
+        for (int i = 0; i < websites.size(); i++)
+        {
+            file << websites[i].getID() << "," << websites[i].getUsername() << "," << websites[i].getPassword() << "," << websites[i].getWebsiteName() << "," << websites[i].getWebsiteURL() << "," << websites[i].getDateCreated() << "," << websites[i].getLastUpdated() << endl;
+        }
+        file.close();
+    }
+
+    static void deleteWebsite(int id)
+    {
+        vector<Website> websites = getWebsites();
+        for (int i = 0; i < websites.size(); i++)
+        {
+            if (websites[i].getID() == id)
+            {
+                websites.erase(websites.begin() + i);
+                break;
+            }
+        }
+
+        ofstream file(WEBSITE_FILE_PATH);
+        for (int i = 0; i < websites.size(); i++)
+        {
+            file << websites[i].getID() << "," << websites[i].getUsername() << "," << websites[i].getPassword() << "," << websites[i].getWebsiteName() << "," << websites[i].getWebsiteURL() << "," << websites[i].getDateCreated() << "," << websites[i].getLastUpdated() << endl;
+        }
+        file.close();
+    }
 };
 
 int Website::assignID()
@@ -900,6 +1023,30 @@ vector<User> UserDL::getUsers()
     return users;
 }
 
+vector<Website> User::getWebsites()
+{
+    websites.clear();
+    ifstream file(USER_FILE_PATH);
+    string line;
+    while (getline(file, line))
+    {
+        vector<string> tokens = Validations::splitAndDecode(line);
+
+        if (tokens.size() == 4 && tokens[0] == username)
+        {
+            string websitesString = Validations::trim(tokens[3]);
+            vector<string> websiteIDs = Validations::split(websitesString, ';');
+
+            for (int i = 0; i < websiteIDs.size(); i++)
+            {
+                Website website = WebsiteDL::findWebsiteByID(stoi(websiteIDs[i]));
+                websites.push_back(website);
+            }
+        }
+    }
+    return websites;
+}
+
 // control functions
 int movementOfArrow(int x, int y, int minOption, int maxOption, int lineJump);
 void showCursor(bool value);
@@ -910,10 +1057,12 @@ void pauseScreen();
 // view functions
 string getInputWithEscapeHandling();
 int displayUserWebsites(User user);
+Website takeNewWebsiteInput();
 int displayUserLandingPage();
 string getPasswordInput();
 int displayLandingPage();
 int selectRole();
+void displayWebsite(Website &website);
 
 // user input functions
 Person signUp();
@@ -957,7 +1106,7 @@ int main()
                     int totalWebsites = user.getWebsites().size();
                     if (option == 1)
                     {
-                        displayWebsites:
+                    displayWebsites:
                         clearScreen();
                         int selectedWebsite = displayUserWebsites(user);
                         if (selectedWebsite == totalWebsites + 1)
@@ -972,14 +1121,85 @@ int main()
                         else
                         {
                             clearScreen();
-                            cout <<  user.getWebsites()[selectedWebsite - 1].toString(false) << endl;
+                            cout << user.getWebsites()[selectedWebsite - 1].toString(false) << endl;
                             pauseScreen();
                             goto displayWebsites;
                         }
                     }
                     else if (option == 2)
                     {
-                        // add website
+                        showCursor(true);
+                        Website website(takeNewWebsiteInput());
+                        if (website.getWebsiteName() != "" && website.getWebsiteURL() != "")
+                        {
+                            WebsiteDL::addWebsite(website);
+                            UserDL::addWebsiteForUserInFile(user.getUsername(), website.getID());
+                            user.addWebsite(website);
+                            cout << COLOR_GREEN << "\t\t\t\t\t\tWebsite added successful!" << COLOR_RESET << endl;
+                        }
+                    }
+                    else if (option == 3)
+                    {
+                        clearScreen();
+                        int totalWebsites = user.getWebsites().size();
+                    displayWebs:
+                        int selectedWebsite = displayUserWebsites(user);
+                        if (selectedWebsite == totalWebsites + 1)
+                        {
+                            continue;
+                        }
+                        else if (selectedWebsite == 0)
+                        {
+                            user.sortByDateUpdated();
+                            goto displayWebs;
+                        }
+                        clearScreen();
+                        displayWebsite(user.getWebsites()[selectedWebsite - 1]);
+                    }
+                    else if (option == 4)
+                    {
+                        clearScreen();
+                        int totalWebsites = user.getWebsites().size();
+                        int selectedWebsite = displayUserWebsites(user);
+                        if (selectedWebsite == totalWebsites + 1)
+                        {
+                            continue;
+                        }
+                        else if (selectedWebsite == 0)
+                        {
+                            user.sortByDateUpdated();
+                        }
+                        clearScreen();
+                        cout << COLOR_RED << "\t\t\t\t\t\tAre you sure you want to delete this website? (Y/N): " << COLOR_RESET;
+                        char option = getch();
+                        if (option == 'Y' || option == 'y')
+                        {
+                            int websiteIdToDelete = user.getWebsites()[selectedWebsite - 1].getID();
+                            cout << websiteIdToDelete;
+                            pauseScreen();
+                            UserDL::deleteUsersWebsites(user, user.getUsername(), websiteIdToDelete);
+                            WebsiteDL::deleteWebsite(websiteIdToDelete);
+                        }
+                    }
+                    else if (option == 5)
+                    {
+                        clearScreen();
+                        showCursor(true);
+                        cout << COLOR_CYAN << "\t\t\t\t\t\tEnter new password: " << COLOR_RESET;
+                        string newPassword = getPasswordInput();
+                        if (newPassword.empty())
+                            continue;
+                        if (!Validations::validatePassword(newPassword))
+                        {
+                            cout << COLOR_RED << "\t\t\t\t\t\tPassword must be at least 6 characters long and include "
+                                 << "a special \n\t\t\t\t\t\tcharacter, a capital letter, a number, and a lowercase letter." << COLOR_RESET << "\n";
+                            pauseScreen();
+                            continue;
+                        }
+                        user.setPassword(Encryption::encrypt(newPassword));
+                        UserDL::updateUser(user);
+                        cout << COLOR_GREEN << "\t\t\t\t\t\tPassword changed successfully!" << COLOR_RESET << endl;
+                        pauseScreen();
                     }
                     else if (option == 6)
                     {
@@ -1022,12 +1242,6 @@ int main()
             {
                 User user(person.getUsername(), Encryption::encrypt(person.getPassword()), person.getEmail());
                 UserDL::addUser(user);
-
-                Website website("website 1", "pass", "Facebook", "www.facebook.com");
-                WebsiteDL::addWebsite(website);
-                UserDL::addWebsiteForUserInFile(user.getUsername(), website.getID());
-                user.addWebsite(website);
-
                 pauseScreen();
             }
             clearScreen();
@@ -1140,7 +1354,6 @@ string getInputWithEscapeHandling()
     return input;
 }
 
-// Updated getPasswordInput
 string getPasswordInput()
 {
     string input;
@@ -1175,12 +1388,10 @@ string getPasswordInput()
     return input;
 }
 
-// Updated signUp function
 Person signUp()
 {
     string username, password, email;
 
-    // Get username
     while (true)
     {
         clearScreen();
@@ -1245,7 +1456,6 @@ Person signUp()
         {
             cout << COLOR_RED << "\t\t\t\t\t\tPassword must be at least 6 characters long and include "
                  << "a special \n\t\t\t\t\t\tcharacter, a capital letter, a number, and a lowercase letter." << COLOR_RESET << "\n";
-            pauseScreen();
             return Person();
         }
         else
@@ -1279,15 +1489,31 @@ Person signUp()
 
     // Success message
     cout << COLOR_GREEN << "\t\t\t\t\t\tSign up successful!" << COLOR_RESET << endl;
+    pauseScreen();
     return Person(username, password, email);
 }
 
 int displayUserWebsites(User user)
 {
-    vector<Website> websites = user.getWebsites();
+    vector<Website> userWebsites = user.getWebsites();
+    vector<Website> websites = WebsiteDL::getWebsites();
+    vector<Website> websitesToDisplay;
+    for (int i = 0; i < userWebsites.size(); i++)
+    {
+        for (int j = 0; j < websites.size(); j++)
+        {
+            if (userWebsites[i].getID() == websites[j].getID())
+            {
+                websitesToDisplay.push_back(websites[j]);
+            }
+        }
+    }
+    user.getWebsites().clear();
+    user.setWebsites(websitesToDisplay);
+    websites = user.getWebsites();
     if (websites.size() > 0)
     {
-        gotoxy(93, 0); // Position for "Sort by Last Updated"
+        gotoxy(93, 0);
         cout << COLOR_GREEN << "Sort by Last Updated(S)" << COLOR_RESET << endl;
     }
 
@@ -1295,21 +1521,21 @@ int displayUserWebsites(User user)
     int i = 0;
     for (i; i < websites.size(); i++)
     {
-        if(i > 8)
+        if (i > 8)
             cout << "  ";
         else
             cout << "   ";
-        cout << COLOR_YELLOW << i + 1 << "). " << COLOR_RESET << COLOR_CYAN << websites[i].toString(true) << COLOR_RESET << endl;
+        cout << COLOR_BLUE << i + 1 << "). " << COLOR_RESET << COLOR_CYAN << websites[i].toString(true) << COLOR_RESET << endl;
     }
-    
-    if(i > 8)
-            cout << "  ";
-        else
-            cout << "   ";
+
+    if (i > 8)
+        cout << "  ";
+    else
+        cout << "   ";
     cout << COLOR_BLUE << websites.size() + 1 << "). " << COLOR_RESET << COLOR_CYAN << "Go back" << COLOR_RESET << endl;
 
     // Start from "Go back" and move through options
-    return movementOfArrow(0, 1, 1, websites.size() + 1, 2); 
+    return movementOfArrow(0, 1, 1, websites.size() + 1, 2);
 }
 
 int movementOfArrow(int x, int y, int currentOption, int maxOption, int lineJump)
@@ -1357,4 +1583,210 @@ int movementOfArrow(int x, int y, int currentOption, int maxOption, int lineJump
     } while (key != 13); // Enter key to select an option
 
     return currentOption;
+}
+
+Website takeNewWebsiteInput()
+{
+    string websiteName, websiteURL, username, password;
+    while (true)
+    {
+        clearScreen();
+        cout << COLOR_CYAN << "\t\t\t\t\t\tEnter username for website: " << COLOR_RESET;
+        username = getInputWithEscapeHandling();
+        username = Validations::sanitizeInput(Validations::trim(username));
+
+        if (username.empty())
+            return Website(); // If ESC was pressed, stop here
+
+        if (!Validations::validateUsername(username))
+        {
+            cout << COLOR_RED << "\t\t\t\t\t\tUsername must be at least 3 characters and at most 8 characters long!" << COLOR_RESET << "\n";
+            pauseScreen();
+            continue;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    while (true)
+    {
+        clearScreen();
+        cout << COLOR_MAGENTA << "\t\t\t\t\t\tPassword must be at least 6 characters long and include "
+             << "a special \n\t\t\t\t\t\tcharacter, a capital letter, a number, and a lowercase letter." << COLOR_RESET << "\n";
+        cout << COLOR_MAGENTA << "\t\t\t\t\t\tEnter \"gen\" to generate a random password!" << endl
+             << COLOR_RESET;
+        cout << COLOR_CYAN << "\t\t\t\t\t\tEnter password: " << COLOR_RESET;
+        password = getPasswordInput();
+        password = Validations::sanitizeInput(Validations::trim(password));
+
+        if (password == "gen")
+        {
+            password = RandomPassword::generatePassword();
+            cout << COLOR_GREEN << "\t\t\t\t\t\tGenerated password: " << password << COLOR_RESET << endl;
+            char option;
+            cout << COLOR_CYAN << "\n\t\t\t\t\t\tDo you want to use this password? (Y/N): " << COLOR_RESET;
+            option = getch();
+            if (option == 'Y' || option == 'y')
+            {
+                break;
+            }
+            else
+            {
+                continue;
+            }
+        }
+
+        if (password.empty())
+            return Website(); // If ESC was pressed, stop here
+
+        if (!Validations::validatePassword(password))
+        {
+            cout << COLOR_RED << "\t\t\t\t\t\tPassword must be at least 6 characters long and include "
+                 << "a special \n\t\t\t\t\t\tcharacter, a capital letter, a number, and a lowercase letter." << COLOR_RESET << "\n";
+            pauseScreen();
+            return Website();
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    while (true)
+    {
+        clearScreen();
+        cout << COLOR_CYAN << "\t\t\t\t\t\tEnter website name: " << COLOR_RESET;
+        websiteName = getInputWithEscapeHandling();
+        websiteName = Validations::sanitizeInput(Validations::trim(websiteName));
+
+        if (websiteName.empty())
+            return Website(); // If ESC was pressed, stop here
+
+        if (WebsiteDL::websiteExists(websiteName))
+        {
+            cout << COLOR_RED << "\t\t\t\t\t\tWebsite name already exists!" << COLOR_RESET << "\n";
+            pauseScreen();
+            continue;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    while (true)
+    {
+        clearScreen();
+        cout << COLOR_CYAN << "\t\t\t\t\t\tEnter website URL: " << COLOR_RESET;
+        websiteURL = getInputWithEscapeHandling();
+        websiteURL = Validations::sanitizeInput(Validations::trim(websiteURL));
+
+        if (websiteURL.empty())
+            return Website(); // If ESC was pressed, stop here
+
+        if (WebsiteDL::websiteExists(websiteURL))
+        {
+            cout << COLOR_RED << "\t\t\t\t\t\tWebsite URL already exists!" << COLOR_RESET << "\n";
+            pauseScreen();
+            continue;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    return Website(username, password, websiteName, websiteURL);
+}
+
+void displayWebsite(Website &website)
+{
+    string maskedPassword = "", input;
+
+    while (true) // Loop to re-display the website after each update
+    {
+        clearScreen();
+        maskedPassword = "";
+        for (int i = 0; i < website.getPassword().size(); i++)
+        {
+            maskedPassword += '*';
+        }
+
+        time_t dateCreated = website.getDateCreated();
+        time_t lastUpdated = website.getLastUpdated();
+        string dateCreatedStr = ctime(&dateCreated);
+        string lastUpdatedStr = ctime(&lastUpdated);
+
+        cout << std::string(COLOR_CYAN) + "\tUsername: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + website.getUsername() + std::string(COLOR_RESET) + "\n" +
+                    std::string(COLOR_CYAN) + "\tPassword: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + maskedPassword + std::string(COLOR_RESET) + "\n" +
+                    std::string(COLOR_CYAN) + "\tWebsite Name: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + website.getWebsiteName() + std::string(COLOR_RESET) + "\n" +
+                    std::string(COLOR_CYAN) + "\tWebsite URL: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + website.getWebsiteURL() + std::string(COLOR_RESET) + "\n" +
+                    std::string(COLOR_CYAN) + "\tDate Created: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + dateCreatedStr + std::string(COLOR_RESET) +
+                    std::string(COLOR_CYAN) + "\tLast Updated: " + std::string(COLOR_RESET) + std::string(COLOR_YELLOW) + lastUpdatedStr + std::string(COLOR_RESET) +
+                    std::string(COLOR_CYAN) + "\tGo Back" + std::string(COLOR_RESET) + "\n";
+
+        int option = movementOfArrow(5, 0, 1, 7, 1);
+        clearScreen();
+        showCursor(true);
+
+        if (option == 1)
+        {
+            cout << COLOR_CYAN << "\t\t\t\t\t\tEnter new username: " << COLOR_RESET;
+            input = getInputWithEscapeHandling();
+            input = Validations::sanitizeInput(Validations::trim(input));
+            if (input.empty())
+                continue; // Skip to next iteration if no input is provided
+            website.setUsername(input);
+        }
+        else if (option == 2)
+        {
+            cout << COLOR_CYAN << "\t\t\t\t\t\tEnter new password: " << COLOR_RESET;
+            input = getPasswordInput();
+            input = Validations::sanitizeInput(Validations::trim(input));
+            if (input.empty())
+                continue;
+
+            if (!Validations::validatePassword(input))
+            {
+                cout << COLOR_RED << "\t\t\t\t\t\tPassword must be at least 6 characters long and include "
+                     << "a special \n\t\t\t\t\t\tcharacter, a capital letter, a number, and a lowercase letter." << COLOR_RESET << "\n";
+                pauseScreen();
+                continue;
+            }
+            website.setPassword(input);
+        }
+        else if (option == 3)
+        {
+            cout << COLOR_CYAN << "\t\t\t\t\t\tEnter new website name: " << COLOR_RESET;
+            input = getInputWithEscapeHandling();
+            input = Validations::sanitizeInput(Validations::trim(input));
+            if (input.empty())
+                continue;
+            website.setWebsiteName(input);
+        }
+        else if (option == 4)
+        {
+            cout << COLOR_CYAN << "\t\t\t\t\t\tEnter new website URL: " << COLOR_RESET;
+            input = getInputWithEscapeHandling();
+            input = Validations::sanitizeInput(Validations::trim(input));
+            if (input.empty())
+                continue;
+            website.setWebsiteURL(input);
+        }
+        else if (option == 5 || option == 6)
+        {
+            cout << COLOR_RED << "\t\t\t\t\t\tDate created/updated field is manually uneditable\n";
+            pauseScreen();
+            continue;
+        }
+        else if (option == 7)
+        {
+            return; // Exit when user selects "Go Back"
+        }
+
+        website.setLastUpdated(time(0));
+        WebsiteDL::editWebsite(website);
+    }
 }

@@ -1,179 +1,548 @@
 #include <iostream>
+#include <vector>
+#include <ctime>
 #include <string>
-#include <algorithm> // for std::replace
-#include <conio.h> // for getch()
-#include <regex>   // for email validation
-#include <cctype>  // for character checks
+#include <fstream>
+#include <windows.h>
+#include <conio.h>
 
 using namespace std;
 
-class Validations
+const string userFilePath = "Files/Users.txt";
+
+class Person
 {
+private:
+    string username;
+    string password;
+    string email;
+
 public:
-    // Static function to trim leading and trailing whitespace
-    static string trim(const string &str)
+    Person()
     {
-        size_t first = str.find_first_not_of(' ');
-        if (first == string::npos)
-            return ""; // All spaces
-        size_t last = str.find_last_not_of(' ');
-        return str.substr(first, last - first + 1);
     }
 
-    // Static function to validate username length (must be >= 3)
-    static bool validateUsername(const string &username)
+    Person(string username, string password, string email)
     {
-        return username.length() >= 3;
+        this->username = username;
+        this->password = password;
+        this->email = email;
     }
 
-    // Static function to validate password
-    // Must have: 6+ chars, 1 special char, 1 number, 1 capital letter, 1 lowercase
-    static bool validatePassword(const string &password)
+    string toString()
     {
-        if (password.length() < 6)
-            return false;
-
-        bool hasSpecial = false, hasDigit = false, hasUpper = false, hasLower = false;
-
-        for (char c : password)
-        {
-            if (isdigit(c))
-                hasDigit = true;
-            else if (isupper(c))
-                hasUpper = true;
-            else if (islower(c))
-                hasLower = true;
-            else if (ispunct(c))
-                hasSpecial = true;
-        }
-
-        return hasSpecial && hasDigit && hasUpper && hasLower;
+        return "Username: " + username + "\nPassword: " + password + "\nEmail: " + email;
     }
 
-    // Static function to replace certain characters
-    // ',' -> '%('  and ';' -> '%)'
-    static string sanitizeInput(string input)
+    string getUsername()
     {
-        string sanitizedInput;
-        for (char c : input)
-        {
-            if (c == ',')
-            {
-                sanitizedInput += "%(";
-            }
-            else if (c == ';')
-            {
-                sanitizedInput += "%)";
-            }
-            else
-            {
-                sanitizedInput += c;
-            }
-        }
-        return sanitizedInput;
+        return username;
     }
 
-    // Static function to validate email format (simple regex check)
-    static bool validateEmail(const string &email)
+    string getPassword()
     {
-        regex emailPattern(R"((\w+)(\.?)(\w*)@(\w+)\.(\w+))");
-        return regex_match(email, emailPattern);
+        return password;
+    }
+
+    string getEmail()
+    {
+        return email;
+    }
+
+    void setUsername(string username)
+    {
+        this->username = username;
+    }
+
+    void setPassword(string password)
+    {
+        this->password = password;
+    }
+
+    void setEmail(string email)
+    {
+        this->email = email;
     }
 };
 
-// Function to get input from user using getch() and handle ESC
-string getInputWithEscapeHandling() {
-    string input;
-    char ch;
-
-    while ((ch = _getch()) != 13) {  // 13 is ASCII for Enter
-        if (ch == 27) {  // ESC key (ASCII 27)
-            cout << "\nESC key pressed. Exiting input.\n";
-            return "";  // Return empty string on ESC
-        } else if (ch == 8) {  // Backspace (ASCII 8)
-            if (!input.empty()) {  // Only process backspace if input is not empty
-                cout << "\b \b";  // Move back and overwrite with space
-                input.pop_back();  // Remove last character from input
-            }
-        } else {
-            input.push_back(ch);  // Add character to input
-            cout << ch;  // Echo the character to console
-        }
-    }
-    cout << endl;  // Move to the next line
-    return input;
-}
-
-string getPasswordInput() {
-    string input;
-    char ch;
-
-    while ((ch = _getch()) != 13) {  // 13 is ASCII for Enter
-        if (ch == 27) {  // ESC key (ASCII 27)
-            cout << "\nESC key pressed. Exiting input.\n";
-            return "";  // Return empty string on ESC
-        } else if (ch == 8) {  // Backspace (ASCII 8)
-            if (!input.empty()) {  // Only process backspace if input is not empty
-                cout << "\b \b";  // Move back and overwrite with space
-                input.pop_back();  // Remove last character from input
-            }
-        } else {
-            input.push_back(ch);  // Add character to input
-            cout << '*';  // Mask input with '*'
-        }
-    }
-    cout << endl;  // Move to the next line
-    return input;
-}
-
-// Function to handle sign-up logic
-void signUp()
+class Website
 {
-    string username, password, email;
+private:
+    string username;
+    string password;
+    string websiteName;
+    string websiteURL;
+    time_t dateCreated;
+    time_t lastUpdated;
 
-    // Get username
-    cout << "Enter username: ";
-    username = getInputWithEscapeHandling();
-    username = Validations::sanitizeInput(Validations::trim(username));
-    if (username.empty())
-        return; // If ESC was pressed, stop here
-
-    if (!Validations::validateUsername(username))
+public:
+    Website(string username, string password, string websiteName, string websiteURL)
     {
-        cout << "Username must be at least 3 characters long!\n";
-        return;
+        this->username = username;
+        this->password = password;
+        this->websiteName = websiteName;
+        this->websiteURL = websiteURL;
+        this->dateCreated = time(0);
+        this->lastUpdated = time(0);
     }
 
-    // Get password
-    cout << "Enter password: ";
-    password = getPasswordInput();
-    password = Validations::sanitizeInput(Validations::trim(password));
-    if (password.empty())
-        return; // If ESC was pressed, stop here
-
-    if (!Validations::validatePassword(password))
+    string toString()
     {
-        cout << "Password must be at least 6 characters long and include "
-             << "a special character, a capital letter, a number, and a lowercase letter.\n";
-        return;
+        return "Username: " + username + "\nPassword: " + password + "\nWebsite Name: " + websiteName + "\nWebsite URL: " + websiteURL + "\nDate Created: " + ctime(&dateCreated) + "\nLast Updated: " + ctime(&lastUpdated);
     }
 
-    // Get email
-    cout << "Enter email: ";
-    email = getInputWithEscapeHandling();
-    email = Validations::sanitizeInput(Validations::trim(email));
-    if (!Validations::validateEmail(email))
+    string getUsername()
     {
-        cout << "Invalid email format!\n";
-        return;
+        return username;
     }
 
-    // Success message
-    cout << "Sign up successful!" << endl;
-}
+    string getPassword()
+    {
+        return password;
+    }
+
+    string getWebsiteName()
+    {
+        return websiteName;
+    }
+
+    string getWebsiteURL()
+    {
+        return websiteURL;
+    }
+
+    time_t getDateCreated()
+    {
+        return dateCreated;
+    }
+
+    time_t getLastUpdated()
+    {
+        return lastUpdated;
+    }
+
+    void setUsername(string username)
+    {
+        this->username = username;
+    }
+
+    void setPassword(string password)
+    {
+        this->password = password;
+    }
+
+    void setWebsiteName(string websiteName)
+    {
+        this->websiteName = websiteName;
+    }
+
+    void setWebsiteURL(string websiteURL)
+    {
+        this->websiteURL = websiteURL;
+    }
+
+    void setDateCreated(time_t dateCreated)
+    {
+        this->dateCreated = dateCreated;
+    }
+
+    void setLastUpdated(time_t lastUpdated)
+    {
+        this->lastUpdated = lastUpdated;
+    }
+};
+
+class User : public Person
+{
+private:
+    vector<Website> websites;
+
+public:
+    User()
+    {
+    }
+
+    User(string username, string password, string email) : Person(username, password, email)
+    {
+    }
+
+    void addWebsite(Website website)
+    {
+        websites.push_back(website);
+    }
+
+    void removeWebsite(string websiteURL)
+    {
+        for (int i = 0; i < websites.size(); i++)
+        {
+            if (websites[i].getWebsiteURL() == websiteURL)
+            {
+                websites.erase(websites.begin() + i);
+                break;
+            }
+        }
+    }
+
+    string toString()
+    {
+        string result = "User: " + getUsername() + "\n" + "Email: " + getEmail();
+        for (int i = 0; i < websites.size(); i++)
+        {
+            result += websites[i].toString() + "\n";
+        }
+        return result;
+    }
+
+    vector<Website> getWebsites()
+    {
+        return websites;
+    }
+
+    void setWebsites(vector<Website> websites)
+    {
+        this->websites = websites;
+    }
+
+    void editPassword(string newPassword, int index)
+    {
+        websites[index].setPassword(newPassword);
+    }
+
+    vector<Website> searchWebsite(string websiteURL)
+    {
+        vector<Website> result;
+        for (int i = 0; i < websites.size(); i++)
+        {
+            if (websites[i].getWebsiteURL() == websiteURL)
+            {
+                result.push_back(websites[i]);
+            }
+        }
+        return result;
+    }
+
+    void sortByDateCreated()
+    {
+        int n = websites.size();
+        for (int i = n / 2 - 1; i >= 0; i--)
+        {
+            heapify(websites, n, i);
+        }
+        for (int i = n - 1; i >= 0; i--)
+        {
+            swap(websites[0], websites[i]);
+            heapify(websites, i, 0);
+        }
+    }
+
+    void heapify(vector<Website> &websites, int n, int i)
+    {
+        int largest = i;
+        int l = 2 * i + 1;
+        int r = 2 * i + 2;
+        if (l < n && websites[l].getDateCreated() > websites[largest].getDateCreated())
+        {
+            largest = l;
+        }
+        if (r < n && websites[r].getDateCreated() > websites[largest].getDateCreated())
+        {
+            largest = r;
+        }
+        if (largest != i)
+        {
+            swap(websites[i], websites[largest]);
+            heapify(websites, n, largest);
+        }
+    }
+
+    void swap(Website &a, Website &b)
+    {
+        Website temp = a;
+        a = b;
+        b = temp;
+    }
+};
+
+// class Admin : public Person
+// {
+// public:
+//     vector<User> getAllUsers()
+//     {
+//         return users;
+//     }
+
+//     void editUserPassword(string username, string newPassword)
+//     {
+//         for (int i = 0; i < users.size(); i++)
+//         {
+//             if (users[i].getUsername() == username)
+//             {
+//                 users[i].setPassword(newPassword);
+//                 break;
+//             }
+//         }
+//     }
+
+//     void deleteUserPassword(string username)
+//     {
+//         for (int i = 0; i < users.size(); i++)
+//         {
+//             if (users[i].getUsername() == username)
+//             {
+//                 users.erase(users.begin() + i);
+//                 break;
+//             }
+//         }
+//     }
+// };
+
+class Encryption
+{
+private:
+    static const int key = 56; // Key used for shifting
+
+public:
+    // Encryption function
+    static string encrypt(string text)
+    {
+        string result = "";
+        for (int i = 0; i < text.length(); i++)
+        {
+            if (isalpha(text[i])) // Only process alphabetic characters
+            {
+                if (isupper(text[i])) // Process uppercase letters
+                {
+                    result += char((text[i] - 'A' + (key % 26)) % 26 + 'A');
+                }
+                else // Process lowercase letters
+                {
+                    result += char((text[i] - 'a' + (key % 26)) % 26 + 'a');
+                }
+            }
+            else // Non-alphabetic characters remain unchanged
+            {
+                result += text[i];
+            }
+        }
+        return result;
+    }
+
+    // Decryption function
+    static string decrypt(string text)
+    {
+        string result = "";
+        for (int i = 0; i < text.length(); i++)
+        {
+            if (isalpha(text[i])) // Only process alphabetic characters
+            {
+                if (isupper(text[i])) // Process uppercase letters
+                {
+                    result += char((text[i] - 'A' - (key % 26) + 26) % 26 + 'A');
+                }
+                else // Process lowercase letters
+                {
+                    result += char((text[i] - 'a' - (key % 26) + 26) % 26 + 'a');
+                }
+            }
+            else // Non-alphabetic characters remain unchanged
+            {
+                result += text[i];
+            }
+        }
+        return result;
+    }
+};
+
+class RandomPassword
+{
+public:
+    static string generatePassword()
+    {
+        string password = "";
+        string characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()_+";
+        for (int i = 0; i <= 8; i++)
+        {
+            password += characters[rand() % characters.size()];
+        }
+        return password;
+    }
+};
+
+class UserDL
+{
+public:
+    static void addUser(User user)
+    {
+        ofstream file(userFilePath, ios::app);
+        file << user.getUsername() <<","<< user.getPassword() << "," << user.getEmail() << endl;
+        file.close();
+    }
+
+    void updateUser(User user)
+    {
+        vector<User> users = getUsers();
+        for (int i = 0; i < users.size(); i++)
+        {
+            if (users[i].getUsername() == user.getUsername())
+            {
+                users[i] = user;
+                break;
+            }
+        }
+
+        ofstream file(userFilePath);
+        for (int i = 0; i < users.size(); i++)
+        {
+            file << users[i].getUsername() << " " << users[i].getPassword() << " " << users[i].getEmail() << endl;
+        }
+        file.close();
+    }
+
+    void deleteUser(string username)
+    {
+        vector<User> users = getUsers();
+        for (int i = 0; i < users.size(); i++)
+        {
+            if (users[i].getUsername() == username)
+            {
+                users.erase(users.begin() + i);
+                break;
+            }
+        }
+
+        ofstream file(userFilePath);
+        for (int i = 0; i < users.size(); i++)
+        {
+            file << users[i].getUsername() << " " << users[i].getPassword() << " " << users[i].getEmail() << endl;
+        }
+        file.close();
+    }
+
+    User getUser(string username)
+    {
+        vector<User> users = getUsers();
+        for (int i = 0; i < users.size(); i++)
+        {
+            if (users[i].getUsername() == username)
+            {
+                return users[i];
+            }
+        }
+        return User();
+    }
+
+    vector<User> getUsers()
+    {
+        vector<User> users;
+        ifstream file(userFilePath);
+        string username, password, email;
+        while (file >> username >> password >> email)
+        {
+            User user(username, password, email);
+            users.push_back(user);
+        }
+        file.close();
+        return users;
+    }
+};
+
+int displayLandingPage();
+void showCursor(bool value);
+void gotoxy(int x, int y);
+int movementOfArrow(int x, int y, int minOption, int maxOption);
+void clearScreen();
 
 int main()
 {
-    signUp();
+    while(true)
+    {
+        int option = displayLandingPage();
+        if(option == 1)
+        {
+            cout << "Login" << endl;
+        }
+        else if(option == 2)
+        {
+            showCursor(true);
+            
+            cout << "Register" << endl;
+        }
+        else if(option == 3)
+        {
+            showCursor(true);
+            cout << "Exit" << endl;
+            break;
+        }
+    }
     return 0;
+}
+
+void showCursor(bool value)
+{
+    HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_CURSOR_INFO info;
+    info.dwSize = 100;
+    info.bVisible = value;
+    SetConsoleCursorInfo(consoleHandle, &info);
+}
+
+void gotoxy(int x, int y)
+{
+    COORD coord;
+    coord.X = x;
+    coord.Y = y;
+    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
+}
+
+void clearScreen()
+{
+    system("cls");
+}   
+
+int movementOfArrow(int x, int y, int minOption, int maxOption)
+{
+    int key;
+    showCursor(false);
+    gotoxy(x, y);
+    cout << "\33[32m"
+         << "o>";
+
+    do
+    {
+        key = _getch();
+
+        // Clear previous arrow
+        gotoxy(x, y);
+        cout << "  ";
+
+        if (key == 72 && minOption > 1)
+        {
+            // Move up
+            minOption--;
+            y = y - 1;
+        }
+        else if (key == 80 && minOption < maxOption)
+        {
+            // Move down
+            minOption++;
+            y = y + 1;
+        }
+
+        // Draw new arrow
+        gotoxy(x, y);
+        cout << "o>";
+
+    } while (key != 13); // 13 is the ASCII code for Enter key
+    return minOption;
+}
+
+int displayLandingPage()
+{
+    clearScreen();
+    cout << "\33[32m"
+         << "\t\t\t\t\t\tLogin" << endl;
+    cout << "\t\t\t\t\t\tRegister" << endl;
+    cout << "\t\t\t\t\t\tExit" << endl;
+    cout << "\33[0m";
+    return movementOfArrow(45, 0, 1, 3);
 }
