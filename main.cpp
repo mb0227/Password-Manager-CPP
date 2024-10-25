@@ -1059,11 +1059,12 @@ void clearScreen();
 void pauseScreen();
 
 // view functions
+int displayUserWebsites(User userx, vector<Website> websites);
+void displaySortedWebsites(vector<Website> websites);
 int optionSelectedForDisplayedWebsites(int totalWebsites);
 void displayWebsite(Website &website, bool mask);
 User displayUsersNames(string operation);
 string getInputWithEscapeHandling();
-int displayUserWebsites(User userx, vector<Website> websites);
 Website takeNewWebsiteInput();
 int displayAdminLandingPage();
 int displayUserLandingPage();
@@ -1077,7 +1078,6 @@ Person signUp();
 
 int main()
 {
-    cout << Encryption::encrypt("WHTtISZ") << endl;
     while (true)
     {
         int option = displayLandingPage();
@@ -1260,9 +1260,10 @@ int main()
                             }
                             else if (selectedWebsite == 0)
                             {
-                                user.sortByDateUpdated();
                                 clearScreen();
-                                displayUserWebsites(user, user.websites);
+                                cout << COLOR_GREEN << "\t\t\t\t\tSorted by last updated date: " << COLOR_RESET << endl;
+                                user.sortByDateUpdated();
+                                displaySortedWebsites(user.websites);
                                 goto displayWebsites;
                             }
                             else
@@ -1294,11 +1295,11 @@ int main()
                     }
                     else if (option == 3) // edit website
                     {
-                        clearScreen();
                         int totalWebsites = user.getWebsites().size();
                         if (totalWebsites > 0)
                         {
                         displayWebs:
+                            clearScreen();
                             int selectedWebsite = displayUserWebsites(user, user.getWebsites());
                             if (selectedWebsite == totalWebsites + 1)
                             {
@@ -1306,9 +1307,10 @@ int main()
                             }
                             else if (selectedWebsite == 0)
                             {
-                                user.sortByDateUpdated();
                                 clearScreen();
-                                displayUserWebsites(user, user.websites);
+                                cout << COLOR_GREEN << "\t\t\t\t\tSorted by last updated date: " << COLOR_RESET << endl;
+                                user.sortByDateUpdated();
+                                displaySortedWebsites(user.websites);
                                 goto displayWebs;
                             }
                             clearScreen();
@@ -1333,9 +1335,10 @@ int main()
                             }
                             else if (selectedWebsite == 0)
                             {
-                                user.sortByDateUpdated();     
                                 clearScreen();
-                                displayUserWebsites(user, user.websites);                           
+                                cout << COLOR_GREEN << "\t\t\t\t\tSorted by last updated date: " << COLOR_RESET << endl;
+                                user.sortByDateUpdated();
+                                displaySortedWebsites(user.websites);
                             }
                             clearScreen();
                             cout << COLOR_RED << "\n\t\t\t\t\t\tAre you sure you want to delete this website? (Y/N): " << COLOR_RESET;
@@ -1895,12 +1898,12 @@ Website takeNewWebsiteInput()
         if (websiteName.empty())
             return Website(); // If ESC was pressed, stop here
 
-        if (WebsiteDL::websiteExists(websiteName))
-        {
-            cout << COLOR_RED << "\t\t\t\t\t\tWebsite name already exists!" << COLOR_RESET << "\n";
-            pauseScreen();
-            continue;
-        }
+        // if (WebsiteDL::websiteExists(websiteName))
+        // {
+        //     cout << COLOR_RED << "\t\t\t\t\t\tWebsite name already exists!" << COLOR_RESET << "\n";
+        //     pauseScreen();
+        //     continue;
+        // }
         else
         {
             break;
@@ -1917,12 +1920,12 @@ Website takeNewWebsiteInput()
         if (websiteURL.empty())
             return Website(); // If ESC was pressed, stop here
 
-        if (WebsiteDL::websiteExists(websiteURL))
-        {
-            cout << COLOR_RED << "\t\t\t\t\t\tWebsite URL already exists!" << COLOR_RESET << "\n";
-            pauseScreen();
-            continue;
-        }
+        // if (WebsiteDL::websiteExists(websiteURL))
+        // {
+        //     cout << COLOR_RED << "\t\t\t\t\t\tWebsite URL already exists!" << COLOR_RESET << "\n";
+        //     pauseScreen();
+        //     continue;
+        // }
         else
         {
             break;
@@ -2105,4 +2108,14 @@ int optionSelectedForDisplayedWebsites(int totalWebsites)
             }
         }
     }
+}
+
+void displaySortedWebsites(vector<Website> websites)
+{
+    int num = 1;
+    for (auto website : websites)
+    {
+        cout << COLOR_CYAN << num++ << "). " << COLOR_RESET << website.toString(false) << endl;
+    }
+    pauseScreen();
 }
